@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useGameStore } from "../store/gameStore";
 import { translations } from "../utils/translations";
 import { MusicVisualizer } from "../components/MusicVisualizer";
-import { Disc } from "lucide-react";
 
 interface GameScreenProps {
   mode: "single" | "multi";
@@ -167,7 +166,7 @@ export function GameScreen({
       pointsAdded = isCorrect ? (100 + Math.round((localTimer / settings.answerDuration) * 100)) : 0;
     } else {
       const me = players.find((p) => p.id === useGameStore.getState().socket?.id);
-      pointsAdded = me ? me.lastScoreAdded : 0;
+      pointsAdded = me ? (me.lastScoreAdded || 0) : 0;
     }
   }
 
