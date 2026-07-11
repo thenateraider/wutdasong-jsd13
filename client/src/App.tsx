@@ -7,7 +7,7 @@ import { MultiplayerLobby } from "./pages/MultiplayerLobby";
 import { GameScreen } from "./pages/GameScreen";
 import { ResultScreen } from "./pages/ResultScreen";
 import { AudioWaveBackground } from "./components/AudioWaveBackground";
-import { Loader2, Settings, X } from "lucide-react";
+import { Settings, X } from "lucide-react";
 import { translations } from "./utils/translations";
 
 export function App() {
@@ -147,7 +147,6 @@ export function App() {
               playClickSFX();
               handleResetGame();
             }}
-            playClickSFX={playClickSFX}
           />
         )}
 
