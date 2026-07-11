@@ -21,8 +21,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
   const { language } = useGameStore();
   const [numSongs, setNumSongs] = useState<number>(10);
   const [answerDuration, setAnswerDuration] = useState<number>(10);
-  const [clipDuration, setClipDuration] = useState<number>(5);
-  const [difficulty, setDifficulty] = useState<"Easy" | "Normal" | "Hard">("Normal");
+  const clipDuration = 5;
+  const difficulty = "Normal";
   const [selectedGenres, setSelectedGenres] = useState<string[]>(["Pop"]);
   const [usePlaylist, setUsePlaylist] = useState<boolean>(false);
   const [playlistUrl, setPlaylistUrl] = useState<string>("");

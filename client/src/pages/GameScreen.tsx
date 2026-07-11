@@ -388,7 +388,7 @@ export function GameScreen({
               className="thinking-cat-container"
               style={{ margin: 0, flexShrink: 0 }}
               dangerouslySetInnerHTML={{
-                __html: `<lottie-player src="${import.meta.env.DEV ? "/dist/assets/cat_thinking.json" : "/assets/cat_thinking.json"
+                __html: `<lottie-player src="${(import.meta as any).env.DEV ? "/dist/assets/cat_thinking.json" : "/assets/cat_thinking.json"
                   }" background="transparent" speed="1" style="width: 100%; height: 100%;" loop autoplay></lottie-player>`,
               }}
             />
@@ -487,9 +487,9 @@ export function GameScreen({
                   }}
                   dangerouslySetInnerHTML={{
                     __html: isCorrect
-                      ? `<lottie-player src="${import.meta.env.DEV ? "/dist/assets/happy_cat.json" : "/assets/happy_cat.json"
+                      ? `<lottie-player src="${(import.meta as any).env.DEV ? "/dist/assets/happy_cat.json" : "/assets/happy_cat.json"
                       }" background="transparent" speed="1.1" style="width:95px;height:95px;" loop autoplay></lottie-player>`
-                      : `<lottie-player src="${import.meta.env.DEV ? "/dist/assets/false_cat.json" : "/assets/false_cat.json"
+                      : `<lottie-player src="${(import.meta as any).env.DEV ? "/dist/assets/false_cat.json" : "/assets/false_cat.json"
                       }" background="transparent" speed="1" style="width:95px;height:95px;" loop autoplay></lottie-player>`,
                   }}
                 />

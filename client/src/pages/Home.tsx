@@ -6,7 +6,6 @@ import { translations } from "../utils/translations";
 interface HomeProps {
   onStartSingle: () => void;
   onGoToMultiplayer: () => void;
-  onOpenSettings: () => void;
   playClickSFX: () => void;
 }
 
@@ -15,7 +14,6 @@ const AVATARS = ["🎧", "🎤", "🎸", "🎹", "🥁", "🎶", "🕺", "💃",
 export function Home({
   onStartSingle,
   onGoToMultiplayer,
-  onOpenSettings,
   playClickSFX,
 }: HomeProps) {
   const { playerName, playerAvatar, setPlayerInfo, language } = useGameStore();

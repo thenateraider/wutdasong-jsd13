@@ -119,10 +119,6 @@ export function App() {
               setMode("multi");
               setStatus("lobby");
             }}
-            onOpenSettings={() => {
-              playClickSFX();
-              setIsSettingsOpen(true);
-            }}
             playClickSFX={playClickSFX}
           />
         )}
