@@ -200,6 +200,65 @@ export function Home({
                 </div>
               ))}
             </div>
+
+            {/* Spotify Import Tutorial Section */}
+            <div style={{ borderTop: "2px dashed rgba(255, 107, 53, 0.15)", marginTop: "20px", paddingTop: "20px" }}>
+              <h3 style={{ 
+                fontSize: "0.95rem", 
+                fontWeight: 900, 
+                color: "var(--orange-core)", 
+                marginBottom: "12px",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px"
+              }}>
+                🎵 {language === "th" ? "ขั้นตอนนำเข้าเพลย์ลิสต์ Spotify" : "Spotify Playlist Import Guide"}
+              </h3>
+              
+              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                {[
+                  {
+                    th: "1. เข้าไปที่เพลย์ลิสต์ที่ต้องการ (ต้องเป็น Public Playlist ของ Spotify) และกดปุ่ม สามจุด",
+                    en: "1. Go to your desired playlist (must be a Public Spotify Playlist) and click the three-dots button.",
+                    img: "/pl_tutorial1.jpg"
+                  },
+                  {
+                    th: "2. กดเลือก Share / แบ่งปัน",
+                    en: "2. Select Share.",
+                    img: "/pl_tutorial2.jpg"
+                  },
+                  {
+                    th: "3. กด Copy Link",
+                    en: "3. Click Copy Link.",
+                    img: "/pl_tutorial3.jpg"
+                  },
+                  {
+                    th: "4. ในส่วนตั้งค่าเกม ให้เปิดฟังชั่น Play from Spotify playlist / เล่นจาก Spotify Playlist และวางลิงค์ที่ได้มา และสามารถสนุกกับเพลงที่คุณต้องการ",
+                    en: "4. In game settings, toggle 'Play from Spotify playlist' on, paste the copied link, and enjoy your custom game!",
+                    img: "/pl_tutorial4.jpg"
+                  }
+                ].map((step, idx) => (
+                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <p style={{ fontSize: "0.80rem", fontWeight: 700, color: "var(--text-dark)", lineHeight: 1.45 }}>
+                      {language === "th" ? step.th : step.en}
+                    </p>
+                    <div style={{ 
+                      borderRadius: "14px", 
+                      overflow: "hidden", 
+                      border: "1.5px solid rgba(255, 107, 53, 0.15)", 
+                      boxShadow: "var(--shadow-sm)",
+                      background: "rgba(255,255,255,0.4)"
+                    }}>
+                      <img 
+                        src={step.img} 
+                        alt={`Tutorial step ${idx + 1}`} 
+                        style={{ width: "100%", height: "auto", display: "block" }} 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       )}
