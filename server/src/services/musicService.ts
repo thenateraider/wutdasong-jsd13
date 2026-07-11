@@ -1,0 +1,539 @@
+import axios from "axios";
+import { SEED_SONGS, SeedSong, STATIC_FALLBACK_SONGS } from "../db/songsData";
+
+export interface GameTrack {
+  id: string;
+  title: string;
+  artist: string;
+  genre: string;
+  previewUrl: string;
+  artworkUrl: string;
+  album: string;
+}
+
+export interface Choice {
+  id: string;
+  title: string;
+  artist: string;
+}
+
+export interface RoundData {
+  roundNumber: number;
+  questionId: string;
+  previewUrl: string;
+  choices: Choice[];
+  // Keep the answer separate, not sent to clients immediately!
+  secretAnswer: GameTrack;
+}
+
+class MusicService {
+  private spotifyToken: string | null = null;
+  private tokenExpiresAt: number = 0;
+
+  constructor() {
+    this.getSpotifyToken();
+  }
+
+  // Get or refresh Spotify Client Credentials token
+  private async getSpotifyToken(): Promise<string | null> {
+    const clientId = process.env.SPOTIFY_CLIENT_ID;
+    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      return null;
+    }
+
+    // Return cached token if valid
+    if (this.spotifyToken && Date.now() < this.tokenExpiresAt) {
+      return this.spotifyToken;
+    }
+
+    try {
+      const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+      const response = await axios.post(
+        "https://accounts.spotify.com/api/token",
+        "grant_type=client_credentials",
+        {
+          headers: {
+            Authorization: `Basic ${authHeader}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        }
+      );
+
+      this.spotifyToken = response.data.access_token;
+      // Expires in response.data.expires_in seconds (usually 3600), refresh 1 min early
+      this.tokenExpiresAt = Date.now() + (response.data.expires_in - 60) * 1000;
+      console.log("[Spotify] Access Token refreshed successfully.");
+      return this.spotifyToken;
+    } catch (error: any) {
+      console.error("[Spotify] Error authenticating client credentials:", error.message);
+      return null;
+    }
+  }
+
+  // Search Spotify Web API for a track
+  private async searchSpotify(query: string): Promise<Partial<GameTrack> | null> {
+    const token = await this.getSpotifyToken();
+    if (!token) return null;
+
+    try {
+      const response = await axios.get("https://api.spotify.com/v1/search", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { q: query, type: "track", limit: 1 },
+      });
+
+      const track = response.data.tracks?.items?.[0];
+      if (!track) return null;
+
+      return {
+        title: track.name,
+        artist: track.artists.map((a: any) => a.name).join(", "),
+        previewUrl: track.preview_url || undefined, // Spotify might return null for previews
+        artworkUrl: track.album?.images?.[0]?.url || "",
+        album: track.album?.name || "Unknown Album",
+      };
+    } catch (error: any) {
+      console.error(`[Spotify] Error searching for "${query}":`, error.message);
+      return null;
+    }
+  }
+
+  // Search iTunes Search API (very reliable for 30s previews, no keys needed)
+  private async searchITunes(query: string): Promise<Partial<GameTrack> | null> {
+    try {
+      const response = await axios.get("https://itunes.apple.com/search", {
+        params: { term: query, entity: "musicTrack", limit: 1 },
+      });
+
+      const track = response.data.results?.[0];
+      if (!track) return null;
+
+      // iTunes provides standard 100x100 artwork, we can upgrade it to 400x400 for better UI look
+      let artwork = track.artworkUrl100 || "";
+      if (artwork.endsWith("100x100bb.jpg")) {
+        artwork = artwork.replace("100x100bb.jpg", "400x400bb.jpg");
+      }
+
+      return {
+        title: track.trackName,
+        artist: track.artistName,
+        previewUrl: track.previewUrl || undefined,
+        artworkUrl: artwork,
+        album: track.collectionName || "Single",
+      };
+    } catch (error: any) {
+      console.error(`[iTunes] Error searching for "${query}":`, error.message);
+      return null;
+    }
+  }
+
+  // Helper to fetch details and preview url for a seed song
+  public async fetchTrackDetails(seed: SeedSong): Promise<GameTrack | null> {
+    // If it's a playlist track with a preview URL already set
+    if (seed.spotifyPreviewUrl) {
+      // If we already have artwork, return immediately
+      if (seed.artworkUrl) {
+        return {
+          id: seed.id,
+          title: seed.title,
+          artist: seed.artist,
+          genre: seed.genre,
+          previewUrl: seed.spotifyPreviewUrl,
+          artworkUrl: seed.artworkUrl,
+          album: seed.album || "Spotify Playlist",
+        };
+      }
+      // No artwork — try iTunes just to get the cover art
+      const itunesForArt = await this.searchITunes(`${seed.artist} ${seed.title}`);
+      return {
+        id: seed.id,
+        title: seed.title,
+        artist: seed.artist,
+        genre: seed.genre,
+        previewUrl: seed.spotifyPreviewUrl,
+        artworkUrl: itunesForArt?.artworkUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop",
+        album: itunesForArt?.album || seed.album || "Spotify Playlist",
+      };
+    }
+
+    const query = seed.searchQuery || `${seed.artist} ${seed.title}`;
+    console.log(`[MusicService] Fetching details for: ${seed.artist} - ${seed.title} (Query: ${query})`);
+
+    let details: Partial<GameTrack> | null = null;
+
+    // 1. Try Spotify first if credentials are set
+    if (process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET) {
+      details = await this.searchSpotify(query);
+    }
+
+    // If details are found, merge with seed properties if any (like artworkUrl or album)
+    if (details) {
+      details = {
+        ...details,
+        artworkUrl: seed.artworkUrl || details.artworkUrl,
+        album: seed.album || details.album,
+      };
+    }
+
+    // 2. If Spotify search fails or has no previewUrl, use iTunes as fallback (it has high-fidelity 30s previews)
+    if (!details || !details.previewUrl) {
+      const itunesDetails = await this.searchITunes(query);
+      if (itunesDetails && itunesDetails.previewUrl) {
+        details = {
+          ...details, // keep spotify metadata if any
+          title: details?.title || itunesDetails.title,
+          artist: details?.artist || itunesDetails.artist,
+          previewUrl: itunesDetails.previewUrl,
+          artworkUrl: details?.artworkUrl || itunesDetails.artworkUrl,
+          album: details?.album || itunesDetails.album,
+        };
+      }
+    }
+
+    // 3. If everything fails, use static fallbacks if it matches or return null
+    if (!details || !details.previewUrl) {
+      const staticMatch = STATIC_FALLBACK_SONGS.find(
+        (s) => s.title.toLowerCase() === seed.title.toLowerCase() || s.id === seed.id
+      );
+      if (staticMatch) {
+        return {
+          id: seed.id,
+          title: staticMatch.title,
+          artist: staticMatch.artist,
+          genre: seed.genre,
+          previewUrl: staticMatch.previewUrl,
+          artworkUrl: staticMatch.artworkUrl,
+          album: "Fallback Collection",
+        };
+      }
+      return null;
+    }
+
+    return {
+      id: seed.id,
+      title: details.title || seed.title,
+      artist: details.artist || seed.artist,
+      genre: seed.genre,
+      previewUrl: details.previewUrl,
+      artworkUrl: details.artworkUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop",
+      album: details.album || "Unknown Album",
+    };
+  }
+
+  // Extract Spotify Playlist ID from URL or URI
+  public extractPlaylistId(urlOrId: string): string | null {
+    if (!urlOrId) return null;
+    const cleaned = urlOrId.trim();
+    
+    // https://open.spotify.com/playlist/37i9dQZF1DXcBWIGmq7BmE?si=...
+    const urlMatch = cleaned.match(/playlist\/([a-zA-Z0-9]+)/);
+    if (urlMatch) return urlMatch[1];
+    
+    // spotify:playlist:37i9dQZF1DXcBWIGmq7BmE
+    const uriMatch = cleaned.match(/spotify:playlist:([a-zA-Z0-9]+)/);
+    if (uriMatch) return uriMatch[1];
+    
+    // Raw 22-character base62 ID
+    if (/^[a-zA-Z0-9]{22}$/.test(cleaned)) return cleaned;
+    
+    return null;
+  }
+
+  // Fetch playlist preview info (name, cover, track count)
+  public async fetchPlaylistInfo(playlistId: string): Promise<{ name: string; imageUrl: string | null; trackCount: number } | null> {
+    // Try embed scraper first
+    try {
+      const url = `https://open.spotify.com/embed/playlist/${playlistId}`;
+      const response = await axios.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        },
+        timeout: 8000,
+      });
+
+      const html = response.data;
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+      if (nextDataMatch) {
+        const parsed = JSON.parse(nextDataMatch[1]);
+        const entity = parsed.props?.pageProps?.state?.data?.entity;
+        if (entity) {
+          const name = entity.name || "Spotify Playlist";
+          const imageUrl = entity.images?.[0]?.url || entity.coverArt?.sources?.[0]?.url || null;
+          const trackCount = entity.trackList?.length || entity.tracks?.total || 0;
+          return { name, imageUrl, trackCount };
+        }
+      }
+    } catch (err: any) {
+      console.warn(`[PlaylistInfo] Embed scraper failed: ${err.message}`);
+    }
+
+    // Fallback: try Spotify API
+    try {
+      const token = await this.getSpotifyToken();
+      if (token) {
+        const response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { fields: "name,images,tracks.total" },
+        });
+        const data = response.data;
+        return {
+          name: data.name || "Spotify Playlist",
+          imageUrl: data.images?.[0]?.url || null,
+          trackCount: data.tracks?.total || 0,
+        };
+      }
+    } catch (err: any) {
+      console.warn(`[PlaylistInfo] Spotify API fallback failed: ${err.message}`);
+    }
+
+    return null;
+  }
+
+  // Fetch playlist tracks from Spotify (tries Embed Scraper first, falls back to API)
+  public async fetchSpotifyPlaylistTracks(playlistId: string): Promise<SeedSong[]> {
+    console.log(`[Spotify] Fetching tracks for playlist ID via Embed Scraper: ${playlistId}`);
+    try {
+      const url = `https://open.spotify.com/embed/playlist/${playlistId}`;
+      const response = await axios.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+      });
+
+      const html = response.data;
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+      
+      if (!nextDataMatch) {
+        throw new Error("Could not find __NEXT_DATA__ JSON script in embed page.");
+      }
+
+      const parsed = JSON.parse(nextDataMatch[1]);
+      const entity = parsed.props?.pageProps?.state?.data?.entity;
+      const trackList = entity?.trackList || [];
+
+      if (trackList.length === 0) {
+        throw new Error("Track list is empty or undefined in embed JSON.");
+      }
+
+      const tracks: SeedSong[] = trackList.map((t: any, idx: number) => {
+        const trackId = t.uri ? t.uri.split(":")[2] : `embed_pl_${idx}_${Date.now()}`;
+        // Try to get artwork from track's associated images
+        const artworkUrl = t.imageUrl || t.image?.url || entity?.images?.[0]?.url || undefined;
+        return {
+          id: trackId,
+          title: t.title,
+          artist: t.subtitle,
+          genre: "Spotify Playlist",
+          spotifyPreviewUrl: t.audioPreview?.url || undefined,
+          artworkUrl: artworkUrl,
+          album: "Spotify Playlist"
+        };
+      });
+
+      console.log(`[Spotify Embed] Successfully parsed ${tracks.length} tracks.`);
+      return tracks;
+    } catch (err: any) {
+      console.warn(`[Spotify Embed] Scraper failed: ${err.message}. Trying official Spotify API as fallback...`);
+      return this.fetchSpotifyPlaylistTracksViaAPI(playlistId);
+    }
+  }
+
+  // Fetch playlist tracks via official API (fallback)
+  private async fetchSpotifyPlaylistTracksViaAPI(playlistId: string): Promise<SeedSong[]> {
+    const token = await this.getSpotifyToken();
+    if (!token) {
+      throw new Error("Spotify credentials are not set in the .env file. Please check SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET.");
+    }
+
+    try {
+      console.log(`[Spotify API] Fetching tracks for playlist: ${playlistId}`);
+      
+      const response = await axios.get(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { limit: 100 },
+      });
+
+      const items = response.data.items || [];
+      const tracks: SeedSong[] = items
+        .filter((item: any) => item.track !== null && item.track.name)
+        .map((item: any, idx: number) => {
+          const track = item.track;
+          return {
+            id: track.id || `sp_pl_${idx}_${Date.now()}`,
+            title: track.name,
+            artist: track.artists.map((a: any) => a.name).join(", "),
+            genre: "Spotify Playlist",
+            spotifyPreviewUrl: track.preview_url || undefined,
+            artworkUrl: track.album?.images?.[0]?.url || undefined,
+            album: track.album?.name || "Unknown Album",
+          };
+        });
+
+      if (tracks.length === 0) {
+        throw new Error("No tracks found in the Spotify playlist. Make sure the playlist contains tracks.");
+      }
+
+      console.log(`[Spotify API] Retrieved ${tracks.length} tracks from playlist.`);
+      return tracks;
+    } catch (error: any) {
+      console.error("[Spotify API] Error fetching playlist tracks:", error.message);
+      if (error.response?.status === 404) {
+        throw new Error("Spotify playlist not found. Make sure the playlist is PUBLIC.");
+      }
+      throw new Error(error.message || "Failed to fetch playlist tracks.");
+    }
+  }
+
+  // Generate game rounds based on settings
+  public async generateGameRounds(
+    genres: string[],
+    numSongs: number,
+    playlistUrl?: string
+  ): Promise<RoundData[]> {
+    console.log(`[MusicService] Generating ${numSongs} rounds. Playlist:`, playlistUrl || "None");
+
+    let pool: SeedSong[] = [];
+
+    // Check if playlistUrl is provided
+    if (playlistUrl && playlistUrl.trim()) {
+      const playlistId = this.extractPlaylistId(playlistUrl);
+      if (!playlistId) {
+        throw new Error("Invalid Spotify playlist URL. Make sure it looks like 'https://open.spotify.com/playlist/...'");
+      }
+      pool = await this.fetchSpotifyPlaylistTracks(playlistId);
+    } else {
+      // 1. Filter songs by selected genres (handle 'Random' or empty as all)
+      const isRandom = genres.includes("Random") || genres.length === 0;
+      pool = SEED_SONGS.filter((song) => isRandom || genres.includes(song.genre));
+    }
+
+    if (pool.length === 0) {
+      throw new Error("No songs found matching selected parameters.");
+    }
+
+    // 1. Filter out acoustic, acapella, cappella, instrumental, karaoke versions
+    const unwantedKeywords = ["acoustic", "acapella", "cappella", "instrumental", "instrument", "karaoke"];
+    const filteredPool = pool.filter((song) => {
+      const titleLower = song.title.toLowerCase();
+      return !unwantedKeywords.some(keyword => titleLower.includes(keyword));
+    });
+
+    // 2. Deduplicate song titles in the session
+    const seenTitles = new Set<string>();
+    const uniquePool: SeedSong[] = [];
+    for (const song of filteredPool) {
+      const cleanTitle = song.title.trim().toLowerCase();
+      if (!seenTitles.has(cleanTitle)) {
+        seenTitles.add(cleanTitle);
+        uniquePool.push(song);
+      }
+    }
+
+    if (uniquePool.length === 0) {
+      throw new Error("No valid songs remaining after applying filters.");
+    }
+
+    // Shuffle pool
+    const shuffledPool = [...uniquePool].sort(() => Math.random() - 0.5);
+    const rounds: RoundData[] = [];
+    let roundIndex = 1;
+
+    for (const seedSong of shuffledPool) {
+      if (rounds.length >= numSongs) break;
+
+      // Fetch preview and details
+      const track = await this.fetchTrackDetails(seedSong);
+      if (!track || !track.previewUrl) {
+        // Skip songs without working audio previews
+        console.log(`[MusicService] Skipping "${seedSong.title}" - no preview found.`);
+        continue;
+      }
+
+      // Generate 4 other unique incorrect choices from the pool
+      const wrongPool = uniquePool.filter((s) => s.id !== seedSong.id);
+      const shuffledWrong = [...wrongPool].sort(() => Math.random() - 0.5);
+      const choices: Choice[] = [
+        { id: seedSong.id, title: track.title, artist: track.artist },
+      ];
+
+      for (const w of shuffledWrong) {
+        if (choices.length >= 5) break;
+        // Avoid adding duplicate songs (by checking title/artist combination)
+        if (!choices.some((c) => c.title.toLowerCase() === w.title.toLowerCase())) {
+          choices.push({ id: w.id, title: w.title, artist: w.artist });
+        }
+      }
+
+      // If we don't have enough choices from the playlist, pad with general seed songs
+      if (choices.length < 5) {
+        const globalWrongPool = SEED_SONGS.filter((s) => s.id !== seedSong.id);
+        const shuffledGlobalWrong = [...globalWrongPool].sort(() => Math.random() - 0.5);
+        for (const w of shuffledGlobalWrong) {
+          if (choices.length >= 5) break;
+          if (!choices.some((c) => c.title.toLowerCase() === w.title.toLowerCase())) {
+            choices.push({ id: w.id, title: w.title, artist: w.artist });
+          }
+        }
+      }
+
+      // Shuffle the 5 choices
+      const shuffledChoices = choices.sort(() => Math.random() - 0.5);
+
+      rounds.push({
+        roundNumber: roundIndex++,
+        questionId: `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        previewUrl: track.previewUrl,
+        choices: shuffledChoices,
+        secretAnswer: track,
+      });
+    }
+
+    // If we couldn't get enough tracks dynamically, pad with static fallbacks
+    if (rounds.length < numSongs && (!playlistUrl || !playlistUrl.trim())) {
+      console.log(`[MusicService] Only generated ${rounds.length}/${numSongs} rounds. Padding with static fallbacks...`);
+      const staticPool = [...STATIC_FALLBACK_SONGS].sort(() => Math.random() - 0.5);
+
+      for (const staticSong of staticPool) {
+        if (rounds.length >= numSongs) break;
+        // Avoid duplicate correct answers
+        if (rounds.some((r) => r.secretAnswer.id === staticSong.id)) continue;
+
+        // Generate choices
+        const wrongPool = SEED_SONGS.filter((s) => s.id !== staticSong.id);
+        const shuffledWrong = [...wrongPool].sort(() => Math.random() - 0.5);
+        const choices: Choice[] = [
+          { id: staticSong.id, title: staticSong.title, artist: staticSong.artist },
+        ];
+
+        for (const w of shuffledWrong) {
+          if (choices.length >= 5) break;
+          choices.push({ id: w.id, title: w.title, artist: w.artist });
+        }
+
+        const shuffledChoices = choices.sort(() => Math.random() - 0.5);
+
+        rounds.push({
+          roundNumber: roundIndex++,
+          questionId: `q_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          previewUrl: staticSong.previewUrl,
+          choices: shuffledChoices,
+          secretAnswer: {
+            id: staticSong.id,
+            title: staticSong.title,
+            artist: staticSong.artist,
+            genre: staticSong.genre,
+            previewUrl: staticSong.previewUrl,
+            artworkUrl: staticSong.artworkUrl,
+            album: "Fallback Collection",
+          },
+        });
+      }
+    }
+
+    return rounds;
+  }
+}
+
+export const musicService = new MusicService();
+export default musicService;
