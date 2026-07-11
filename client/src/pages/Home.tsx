@@ -220,22 +220,22 @@ export function Home({
                   {
                     th: "1. เข้าไปที่เพลย์ลิสต์ที่ต้องการ (ต้องเป็น Public Playlist ของ Spotify) และกดปุ่ม สามจุด",
                     en: "1. Go to your desired playlist (must be a Public Spotify Playlist) and click the three-dots button.",
-                    img: "/pl_tutorial1.jpg"
+                    img: "/assets/pl_tutorial1.jpg"
                   },
                   {
                     th: "2. กดเลือก Share / แบ่งปัน",
                     en: "2. Select Share.",
-                    img: "/pl_tutorial2.jpg"
+                    img: "/assets/pl_tutorial2.jpg"
                   },
                   {
                     th: "3. กด Copy Link",
                     en: "3. Click Copy Link.",
-                    img: "/pl_tutorial3.jpg"
+                    img: "/assets/pl_tutorial3.jpg"
                   },
                   {
                     th: "4. ในส่วนตั้งค่าเกม ให้เปิดฟังชั่น Play from Spotify playlist / เล่นจาก Spotify Playlist และวางลิงค์ที่ได้มา และสามารถสนุกกับเพลงที่คุณต้องการ",
                     en: "4. In game settings, toggle 'Play from Spotify playlist' on, paste the copied link, and enjoy your custom game!",
-                    img: "/pl_tutorial4.jpg"
+                    img: "/assets/pl_tutorial4.jpg"
                   }
                 ].map((step, idx) => (
                   <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
