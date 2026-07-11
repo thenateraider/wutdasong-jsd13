@@ -73,6 +73,7 @@
   margin: 0;
   padding: 0;
   font-family: 'Playpen Sans Thai', cursive, sans-serif !important;
+  line-height: 1.6;
 }
 
 /* ── Body ──────────────────────────────────────────────────────── */
@@ -295,7 +296,7 @@ body {
   transition: var(--t-med);
   width: 100%;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   letter-spacing: 0.01em;
 }
 
@@ -429,7 +430,7 @@ body {
   text-align: left;
   box-shadow: var(--shadow-sm);
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .choice-btn::after {
