@@ -106,7 +106,7 @@ export function App() {
         <Settings size={20} />
       </button>
 
-      <main className="main-content">
+      <main className="main-content" >
         {status === "home" && (
           <Home
             onStartSingle={() => {
@@ -361,9 +361,8 @@ export function App() {
           <div
             style={{ width: "120px", height: "120px", display: "flex", alignItems: "center", justifyContent: "center" }}
             dangerouslySetInnerHTML={{
-              __html: `<dotlottie-player src="${
-                (import.meta as any).env.DEV ? "/dist/assets/Loading Cat.lottie" : "/assets/Loading Cat.lottie"
-              }" background="transparent" speed="1" style="width: 120px; height: 120px;" loop autoplay></dotlottie-player>`
+              __html: `<dotlottie-player src="${(import.meta as any).env.DEV ? "/dist/assets/Loading Cat.lottie" : "/assets/Loading Cat.lottie"
+                }" background="transparent" speed="1" style="width: 120px; height: 120px;" loop autoplay></dotlottie-player>`
             }}
           />
           <p

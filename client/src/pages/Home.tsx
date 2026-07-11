@@ -169,96 +169,118 @@ export function Home({
         </div>
       )}
 
+
       {/* ── How to Play Modal ── */}
       {showHowToPlay && (
-        <div className="modal-overlay">
-          <div className="modal-content animate-popup-bounce">
+        <div className="modal-overlay" >
+          <div
+            className="modal-content animate-popup-bounce"
+            style={{
+              maxHeight: "70vh",
+              maxWidth: "480px",
+              display: "flex",
+              flexDirection: "column",
+              paddingBottom: "20px", // เว้นระยะขอบล่างให้สวยงาม
+
+            }}
+          >
             <button
               onClick={() => { playClickSFX(); setShowHowToPlay(false); }}
               className="modal-close"
             >
               <X size={16} />
             </button>
-            <h2 className="modal-title" style={{ color: "var(--orange-core)" }}>
+
+            <h2 className="modal-title" style={{ color: "var(--orange-core)", marginBottom: "15px" }}>
               {language === "th" ? "📖 วิธีเล่น" : "📖 How to Play"}
             </h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {(language === "th" ? [
-                { emoji: "🎵", text: "เมื่อเริ่มรอบ จะมีเพลงสั้นๆ เล่นให้ฟัง" },
-                { emoji: "⏱️", text: "เลือกคำตอบจาก 5 ตัวเลือก ก่อนหมดเวลา!" },
-                { emoji: "⚡", text: "ตอบเร็วยิ่งได้แต้มโบนัสมาก (Time Bonus)" },
-                { emoji: "🏆", text: "เล่น Multiplayer แข่งกับเพื่อนได้แบบ Real-time!" },
-              ] : [
-                { emoji: "🎵", text: "When a round starts, a short song preview will play." },
-                { emoji: "⏱️", text: "Choose the correct option out of 5 before time runs out!" },
-                { emoji: "⚡", text: "The faster you guess, the more bonus points you score!" },
-                { emoji: "🏆", text: "Compete with friends in real-time Multiplayer rooms!" },
-              ]).map((step, i) => (
-                <div key={i} className="how-to-play-step" style={{ animationDelay: `${i * 0.06}s` }}>
-                  <span className="step-number">{step.emoji}</span>
-                  <p className="step-text">{step.text}</p>
-                </div>
-              ))}
-            </div>
 
-            {/* Spotify Import Tutorial Section */}
-            <div style={{ borderTop: "2px dashed rgba(255, 107, 53, 0.15)", marginTop: "20px", paddingTop: "20px" }}>
-              <h3 style={{ 
-                fontSize: "0.95rem", 
-                fontWeight: 900, 
-                color: "var(--orange-core)", 
-                marginBottom: "12px",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px"
-              }}>
-                🎵 {language === "th" ? "ขั้นตอนนำเข้าเพลย์ลิสต์ Spotify" : "Spotify Playlist Import Guide"}
-              </h3>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
-                {[
-                  {
-                    th: "1. เข้าไปที่เพลย์ลิสต์ที่ต้องการ (ต้องเป็น Public Playlist ของ Spotify) และกดปุ่ม สามจุด",
-                    en: "1. Go to your desired playlist (must be a Public Spotify Playlist) and click the three-dots button.",
-                    img: "/assets/pl_tutorial1.jpg"
-                  },
-                  {
-                    th: "2. กดเลือก Share / แบ่งปัน",
-                    en: "2. Select Share.",
-                    img: "/assets/pl_tutorial2.jpg"
-                  },
-                  {
-                    th: "3. กด Copy Link",
-                    en: "3. Click Copy Link.",
-                    img: "/assets/pl_tutorial3.jpg"
-                  },
-                  {
-                    th: "4. ในส่วนตั้งค่าเกม ให้เปิดฟังชั่น Play from Spotify playlist / เล่นจาก Spotify Playlist และวางลิงค์ที่ได้มา และสามารถสนุกกับเพลงที่คุณต้องการ",
-                    en: "4. In game settings, toggle 'Play from Spotify playlist' on, paste the copied link, and enjoy your custom game!",
-                    img: "/assets/pl_tutorial4.jpg"
-                  }
-                ].map((step, idx) => (
-                  <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <p style={{ fontSize: "0.80rem", fontWeight: 700, color: "var(--text-dark)", lineHeight: 1.45 }}>
-                      {language === "th" ? step.th : step.en}
-                    </p>
-                    <div style={{ 
-                      borderRadius: "14px", 
-                      overflow: "hidden", 
-                      border: "1.5px solid rgba(255, 107, 53, 0.15)", 
-                      boxShadow: "var(--shadow-sm)",
-                      background: "rgba(255,255,255,0.4)"
-                    }}>
-                      <img 
-                        src={step.img} 
-                        alt={`Tutorial step ${idx + 1}`} 
-                        style={{ width: "100%", height: "auto", display: "block" }} 
-                      />
-                    </div>
+            {/* ครอบเนื้อหาทั้งหมดด้วย div นี้และสั่งลื่นไหลด้วย -webkit-overflow-scrolling */}
+            <div style={{
+              overflowY: "auto",
+              flex: 1,
+              paddingRight: "6px", // กันไม่ให้ scrollbar บังเนื้อหา
+              WebkitOverflowScrolling: "touch" // สำหรับ iOS ให้ scroll ลื่นๆ
+            }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                {(language === "th" ? [
+                  { emoji: "🎵", text: "เมื่อเริ่มรอบ จะมีเพลงสั้นๆ เล่นให้ฟัง" },
+                  { emoji: "⏱️", text: "เลือกคำตอบจาก 5 ตัวเลือก ก่อนหมดเวลา!" },
+                  { emoji: "⚡", text: "ตอบเร็วยิ่งได้แต้มโบนัสมาก (Time Bonus)" },
+                  { emoji: "🏆", text: "เล่น Multiplayer แข่งกับเพื่อนได้แบบ Real-time!" },
+                ] : [
+                  { emoji: "🎵", text: "When a round starts, a short song preview will play." },
+                  { emoji: "⏱️", text: "Choose the correct option out of 5 before time runs out!" },
+                  { emoji: "⚡", text: "The faster you guess, the more bonus points you score!" },
+                  { emoji: "🏆", text: "Compete with friends in real-time Multiplayer rooms!" },
+                ]).map((step, i) => (
+                  <div key={i} className="how-to-play-step" style={{ animationDelay: `${i * 0.06}s` }}>
+                    <span className="step-number">{step.emoji}</span>
+                    <p className="step-text">{step.text}</p>
                   </div>
                 ))}
               </div>
-            </div>
+
+              {/* Spotify Import Tutorial Section */}
+              <div style={{ borderTop: "2px dashed rgba(255, 107, 53, 0.15)", marginTop: "20px", paddingTop: "20px" }}>
+                <h3 style={{
+                  fontSize: "0.95rem",
+                  fontWeight: 900,
+                  color: "var(--orange-core)",
+                  marginBottom: "12px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px"
+                }}>
+                  🎵 {language === "th" ? "ขั้นตอนนำเข้าเพลย์ลิสต์ Spotify" : "Spotify Playlist Import Guide"}
+                </h3>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+                  {[
+                    {
+                      th: "1. เข้าไปที่เพลย์ลิสต์ที่ต้องการ (ต้องเป็น Public Playlist ของ Spotify) และกดปุ่ม สามจุด",
+                      en: "1. Go to your desired playlist (must be a Public Spotify Playlist) and click the three-dots button.",
+                      img: "/assets/pl_tutorial1.jpg"
+                    },
+                    {
+                      th: "2. กดเลือก Share / แบ่งปัน",
+                      en: "2. Select Share.",
+                      img: "/assets/pl_tutorial2.jpg"
+                    },
+                    {
+                      th: "3. กด Copy Link",
+                      en: "3. Click Copy Link.",
+                      img: "/assets/pl_tutorial3.jpg"
+                    },
+                    {
+                      th: "4. ในส่วนตั้งค่าเกม ให้เปิดฟังชั่น Play from Spotify playlist / เล่นจาก Spotify Playlist และวางลิงค์ที่ได้มา และสามารถสนุกกับเพลงที่คุณต้องการ",
+                      en: "4. In game settings, toggle 'Play from Spotify playlist' on, paste the copied link, and enjoy your custom game!",
+                      img: "/assets/pl_tutorial4.jpg"
+                    }
+                  ].map((step, idx) => (
+                    <div key={idx} style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <p style={{ fontSize: "0.80rem", fontWeight: 700, color: "var(--text-dark)", lineHeight: 1.45 }}>
+                        {language === "th" ? step.th : step.en}
+                      </p>
+                      <div style={{
+                        borderRadius: "14px",
+                        overflow: "hidden",
+                        border: "1.5px solid rgba(255, 107, 53, 0.15)",
+                        boxShadow: "var(--shadow-sm)",
+                        background: "rgba(255,255,255,0.4)"
+                      }}>
+                        <img
+                          src={step.img}
+                          alt={`Tutorial step ${idx + 1}`}
+                          style={{ width: "100%", height: "auto", display: "block" }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div> {/* สิ้นสุดส่วน scroll box */}
+
           </div>
         </div>
       )}
