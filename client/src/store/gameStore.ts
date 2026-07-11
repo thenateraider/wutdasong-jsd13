@@ -3,7 +3,7 @@ import { io, Socket } from "socket.io-client";
 import axios from "axios";
 
 // Dynamic API URL resolving to the production URL, otherwise local development
-const API_URL = (import.meta as any).env.VITE_API_URL || `http://${window.location.hostname}:5000`;
+export const API_URL = (import.meta as any).env.VITE_API_URL || `http://${window.location.hostname}:5000`;
 
 export interface GameSettings {
   numSongs: number;

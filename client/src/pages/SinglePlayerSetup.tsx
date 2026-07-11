@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { GameSettings, useGameStore } from "../store/gameStore";
+import { GameSettings, useGameStore, API_URL } from "../store/gameStore";
 import { ArrowLeft, Play, Info, Loader2, Music2, CheckCircle2, AlertCircle, X, Search } from "lucide-react";
 import { translations } from "../utils/translations";
 
@@ -62,8 +62,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     setPlaylistError(null);
 
     try {
-      // Use Vite proxy: /api proxied to http://localhost:5000
-      const res = await fetch(`/api/playlist-info?url=${encodeURIComponent(trimmed)}`);
+      // Query backend server directly using API_URL (works in both local dev and production on Vercel)
+      const res = await fetch(`${API_URL}/api/playlist-info?url=${encodeURIComponent(trimmed)}`);
       const data = await res.json();
 
       if (!res.ok) {
