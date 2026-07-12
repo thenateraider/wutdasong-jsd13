@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { GameSettings, useGameStore } from "../store/gameStore";
 import { ArrowLeft, Play, Info, Loader2, Music2, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { translations } from "../utils/translations";
@@ -31,6 +31,19 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
       setSelectedPlaylist(defaultPl.url);
     }
   }, []);
+
+  // Auto-detect Spotify URL on paste
+  const lastAutoUrl = useRef("");
+  useEffect(() => {
+    const trimmed = customUrl.trim();
+    if (!trimmed.toLowerCase().includes("spotify") || customLoading || trimmed.length < 20) return;
+    if (lastAutoUrl.current === trimmed) return;
+    const timer = setTimeout(() => {
+      lastAutoUrl.current = trimmed;
+      handleCustomUrlSearch();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [customUrl, customLoading]);
 
   const handleCustomUrlSearch = async () => {
     const trimmed = customUrl.trim();

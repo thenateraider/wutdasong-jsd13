@@ -73,6 +73,19 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     }
   }, [activeTab]);
 
+  // Auto-detect Spotify URL on paste
+  const lastAutoUrl = useRef("");
+  useEffect(() => {
+    const trimmed = customUrl.trim();
+    if (!trimmed.toLowerCase().includes("spotify") || customLoading || trimmed.length < 20) return;
+    if (lastAutoUrl.current === trimmed) return;
+    const timer = setTimeout(() => {
+      lastAutoUrl.current = trimmed;
+      handleCustomUrlSearch();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [customUrl, customLoading]);
+
   const handleCopyCode = () => {
     if (roomCode) {
       navigator.clipboard.writeText(roomCode);
