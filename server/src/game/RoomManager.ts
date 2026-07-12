@@ -189,6 +189,27 @@ class RoomManager {
     };
   }
 
+  public returnToLobby(code: string, requesterId: string): boolean {
+    const room = this.getRoom(code);
+    if (!room || !room.players.some(p => p.id === requesterId)) return false;
+
+    // Clear game and timers
+    if (room.activeTimer) {
+      clearInterval(room.activeTimer);
+      room.activeTimer = null;
+    }
+    room.game = null;
+    room.state = "lobby";
+
+    // Reset ready states (host stays ready)
+    room.players.forEach(p => {
+      p.isReady = p.id === room.hostId;
+    });
+
+    console.log(`[RoomManager] Room ${code} returned to lobby by host.`);
+    return true;
+  }
+
   public deleteRoom(code: string) {
     const room = this.rooms.get(code);
     if (room && room.activeTimer) {

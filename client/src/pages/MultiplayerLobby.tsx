@@ -1105,7 +1105,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           </p>
         </div>
 
-        <div style={{ display: "flex", gap: "12px", width: "100%", maxWidth: "340px" }}>
+        <div style={{ display: "flex", gap: "12px", width: "100%", maxWidth: "340px" }} className="lobby-footer-buttons">
           <button
             onClick={leaveRoom}
             className="btn btn-secondary ripple"
@@ -1130,13 +1130,11 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           ) : (
             <button
               onClick={toggleReady}
-              className="btn-secondary"
+              className={`btn ripple ${players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady ? "btn-ready-true" : "btn-secondary"}`}
               style={{
                 flex: 1,
                 padding: "12px 20px",
                 fontSize: "0.9rem",
-                backgroundColor: players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady ? "var(--success)" : "var(--primary)",
-                color: "black"
               }}
             >
               {players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady

@@ -95,12 +95,18 @@ export function App() {
     if (mode === "single") {
       startSingleplayer(settings);
     } else {
-      // In multiplayer, result screen "Play Again" returns back to the Lobby
+      // Return to lobby on server so everyone syncs
+      const store = useGameStore.getState();
+      store.returnToLobby();
       setStatus("lobby");
     }
   };
 
   const handleResetGame = () => {
+    const store = useGameStore.getState();
+    if (store.mode === "multi" && store.roomCode) {
+      store.leaveRoom();
+    }
     resetSingleplayer();
     setMode(null);
     setStatus("home");

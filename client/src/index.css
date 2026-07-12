@@ -354,6 +354,18 @@ body {
   box-shadow: none;
 }
 
+/* Ready — Green when toggled */
+.btn-ready-true {
+  background: var(--success) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 20px rgba(34, 197, 94, 0.42), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+  border: none !important;
+}
+.btn-ready-true:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 10px 30px rgba(34, 197, 94, 0.55), 0 4px 12px rgba(0, 0, 0, 0.10) !important;
+}
+
 /* Secondary — Frosted Glass */
 .btn-secondary {
   background: var(--white-glass);
@@ -1994,6 +2006,40 @@ input:checked+.toggle-slider::before {
   .btn {
     padding: 11px 18px !important;
     font-size: 0.9rem !important;
+  }
+
+  .lobby-players-list {
+    grid-template-columns: 1fr !important;
+    max-height: 140px !important;
+  }
+  .lobby-player-card {
+    padding: 6px 10px !important;
+  }
+  .lobby-player-avatar {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: 1.1rem !important;
+  }
+  .lobby-player-name {
+    font-size: 0.82rem !important;
+  }
+  .lobby-chat-box {
+    height: 160px !important;
+  }
+  .lobby-settings-summary-footer {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+  .lobby-footer-buttons {
+    max-width: 100% !important;
+  }
+  .setup-grid-row {
+    grid-template-columns: 1fr !important;
+  }
+  .setup-option-btn {
+    padding: 7px 2px !important;
+    font-size: 0.78rem !important;
   }
 }
 

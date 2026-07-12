@@ -109,6 +109,7 @@ interface GameState {
   updateSettings: (settings: GameSettings) => void;
   sendMessage: (text: string) => void;
   startGame: () => void;
+  returnToLobby: () => void;
   submitGuess: (choiceId: string, timeRemaining: number) => void;
   
   // Leaderboard state
@@ -407,6 +408,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { socket, roomCode, isHost } = get();
     if (socket && roomCode && isHost) {
       socket.emit("start_game", { code: roomCode });
+    }
+  },
+
+  returnToLobby: () => {
+    const { socket, roomCode, isHost } = get();
+    if (socket && roomCode && isHost) {
+      socket.emit("return_to_lobby", { code: roomCode });
     }
   },
 

@@ -447,6 +447,19 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
+  // Return to lobby after game ends
+  socket.on("return_to_lobby", (data: { code: string }) => {
+    const success = roomManager.returnToLobby(data.code, socket.id);
+    if (success) {
+      broadcastRoomUpdate(data.code);
+      io.to(data.code).emit("chat_message", {
+        sender: "System",
+        text: "Game ended. Returned to lobby. Ready up to play again!",
+        timestamp: Date.now()
+      });
+    }
+  });
+
   // Disconnect & Room exit handling
   socket.on("leave_room", () => {
     handleDisconnect(socket);
