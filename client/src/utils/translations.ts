@@ -20,7 +20,7 @@ export const translations = {
     enterName: "ใส่ชื่อของคุณเพื่อเริ่มต้น",
     namePlaceholder: "ชื่อของคุณ...",
     singleBtn: "🎮 เล่นคนเดียว",
-    multiBtn: "👥 เล่นหลายคน (Alpha - some of Bugs)",
+    multiBtn: "👥 เล่นหลายคน (เบต้า)",
     homeSettingsSub: "ปรับแต่งเสียงและภาษาสำหรับแอปพลิเคชัน",
 
     // Settings description
@@ -101,7 +101,7 @@ export const translations = {
     enterName: "Enter your name to start",
     namePlaceholder: "Your name...",
     singleBtn: "🎮 Singleplayer",
-    multiBtn: "👥 Multiplayer (Alpha - Some of Bugs)",
+    multiBtn: "👥 Multiplayer (Beta)",
     homeSettingsSub: "Customize volume levels and system language",
 
     // Settings description
