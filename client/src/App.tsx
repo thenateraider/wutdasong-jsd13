@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useGameStore } from "./store/gameStore";
+import axios from "axios";
 import { useAudio } from "./hooks/useAudio";
 import { Home } from "./pages/Home";
 import { SinglePlayerSetup } from "./pages/SinglePlayerSetup";
@@ -24,6 +25,7 @@ export function App() {
     resetSingleplayer,
     language,
     setLanguage,
+    countdown,
   } = useGameStore();
 
   const {
@@ -42,6 +44,34 @@ export function App() {
   } = useAudio();
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [issueDescription, setIssueDescription] = useState("");
+  const [isSubmittingIssue, setIsSubmittingIssue] = useState(false);
+
+  const handleSendIssue = async () => {
+    if (!issueDescription.trim()) return;
+    setIsSubmittingIssue(true);
+    try {
+      const API_URL = (import.meta as any).env.DEV ? "http://localhost:5000" : "";
+      await axios.post(`${API_URL}/api/issues`, {
+        description: issueDescription
+      });
+      alert(language === "th" ? "ส่งรายงานปัญหาสำเร็จ! ขอบคุณสำหรับข้อมูลครับ" : "Issue report submitted successfully! Thank you.");
+      setIssueDescription("");
+      setIsIssueModalOpen(false);
+    } catch (error) {
+      alert(language === "th" ? "เกิดข้อผิดพลาดในการส่งรายงาน" : "Failed to submit issue report.");
+    } finally {
+      setIsSubmittingIssue(false);
+    }
+  };
+
+  // Play tick sound when countdown ticks
+  useEffect(() => {
+    if (countdown !== null && countdown > 0) {
+      playTickSFX();
+    }
+  }, [countdown]);
 
   // Watch for reveal phase end in singleplayer mode to transition to next round automatically
   useEffect(() => {
@@ -310,6 +340,35 @@ export function App() {
                   </button>
                 </div>
               </div>
+              
+              {/* Report Issue Button */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "8px" }}>
+                <button
+                  onClick={() => {
+                    playClickSFX();
+                    setIsSettingsOpen(false);
+                    setIsIssueModalOpen(true);
+                  }}
+                  className="btn ripple"
+                  style={{
+                    width: "100%",
+                    padding: "10px 16px",
+                    borderRadius: "12px",
+                    fontSize: "0.88rem",
+                    fontWeight: 800,
+                    cursor: "pointer",
+                    background: "rgba(255, 159, 28, 0.12)",
+                    color: "#D97706",
+                    border: "1.5px solid rgba(255, 159, 28, 0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px"
+                  }}
+                >
+                  ⚠️ {language === "th" ? "แจ้งปัญหา / ส่งข้อเสนอแนะ" : "Report Issue / Feedback"}
+                </button>
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: "10px", marginTop: "24px", width: "100%" }}>
@@ -377,8 +436,166 @@ export function App() {
               letterSpacing: "0.05em",
             }}
           >
-            {loadingMessage || "กรุณารอสักครู่..."}
+            {loadingMessage === "Loading songs from API..." 
+              ? translations[language].loadingSongs 
+              : (loadingMessage || translations[language].pleaseWait)}
           </p>
+        </div>
+      )}
+
+      {/* Multiplayer Countdown Overlay Modal */}
+      {countdown !== null && (
+        <div
+          className="modal-overlay"
+          style={{
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            zIndex: 150,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div
+            key={countdown} // Key forces remount to re-trigger css bounce animation
+            style={{
+              fontSize: "7rem",
+              fontWeight: 950,
+              fontFamily: "Outfit, sans-serif",
+              color: "#FFF",
+              textShadow: "0 0 20px rgba(255, 107, 53, 0.6), 0 0 40px rgba(255, 107, 53, 0.3)",
+              animation: "countdownBounceScale 0.8s var(--ease-spring) forwards",
+            }}
+          >
+            {countdown}
+          </div>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.7)",
+              fontSize: "1.1rem",
+              fontWeight: 700,
+              marginTop: "20px",
+              letterSpacing: "0.1em",
+              textTransform: "uppercase"
+            }}
+          >
+            {language === "th" ? "เกมกำลังจะเริ่ม..." : "Game is starting..."}
+          </p>
+        </div>
+      )}
+
+      {/* Issue Report Modal Overlay */}
+      {isIssueModalOpen && (
+        <div
+          className="modal-overlay"
+          style={{
+            zIndex: 200,
+            background: "rgba(0, 0, 0, 0.4)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }}
+        >
+          <div
+            className="card animate-popup-bounce"
+            style={{
+              width: "90%",
+              maxWidth: "400px",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              background: "rgba(255, 255, 255, 0.95)",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.3rem" }}>⚠️</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                  {language === "th" ? "แจ้งปัญหาการใช้งาน" : "Report an Issue"}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  playClickSFX();
+                  setIsIssueModalOpen(false);
+                  setIssueDescription("");
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: "4px"
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", margin: 0, lineHeight: 1.4 }}>
+              {language === "th"
+                ? "อธิบายรายละเอียดปัญหาการใช้งาน หรือข้อเสนอแนะที่คุณต้องการส่งถึงผู้พัฒนาได้ด้านล่างนี้"
+                : "Describe the issue or feedback you'd like to send to the developer below."}
+            </p>
+
+            <textarea
+              value={issueDescription}
+              onChange={(e) => setIssueDescription(e.target.value)}
+              placeholder={language === "th" ? "เช่น ปุ่มแชร์คะแนนกดไม่ได้, อยากให้เพิ่มโหมด..." : "e.g., Share button isn't working, please add..."}
+              style={{
+                width: "100%",
+                height: "120px",
+                padding: "12px",
+                borderRadius: "12px",
+                border: "1.5px solid rgba(255, 107, 53, 0.25)",
+                background: "rgba(255, 255, 255, 0.8)",
+                fontFamily: "inherit",
+                fontSize: "0.88rem",
+                outline: "none",
+                resize: "none"
+              }}
+            />
+
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <button
+                onClick={() => {
+                  playClickSFX();
+                  setIsIssueModalOpen(false);
+                  setIssueDescription("");
+                }}
+                className="btn ripple"
+                style={{
+                  flex: 1,
+                  background: "rgba(0, 0, 0, 0.05)",
+                  border: "1px solid rgba(0,0,0,0.1)",
+                  color: "var(--text-muted)",
+                  padding: "10px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                }}
+              >
+                {language === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <button
+                onClick={handleSendIssue}
+                disabled={isSubmittingIssue || !issueDescription.trim()}
+                className="btn btn-primary ripple"
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                }}
+              >
+                {isSubmittingIssue
+                  ? (language === "th" ? "กำลังส่ง..." : "Submitting...")
+                  : (language === "th" ? "ส่งรายงาน" : "Submit")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

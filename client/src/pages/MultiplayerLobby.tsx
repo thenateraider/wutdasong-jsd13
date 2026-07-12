@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameStore, GameSettings } from "../store/gameStore";
-import { ArrowLeft, Play, Copy, Send, Check, User, Lock, Link as LinkIcon } from "lucide-react";
+import { ArrowLeft, Play, Copy, Send, Check, User, Lock, Link as LinkIcon, X } from "lucide-react";
 import { translations } from "../utils/translations";
 
 interface MultiplayerLobbyProps {
@@ -32,6 +32,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   
   // Lobby creation forms
   const [newRoomName, setNewRoomName] = useState(`${playerName || "Host"}'s Lobby`);
+  const [usePassword, setUsePassword] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [numSongs, setNumSongs] = useState(10);
@@ -44,7 +45,9 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
   // Join Room forms
   const [joinCodeInput, setJoinCodeInput] = useState("");
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [joinPasswordInput, setJoinPasswordInput] = useState("");
+  const [joinError, setJoinError] = useState<string | null>(null);
 
   // Chat forms
   const [chatInput, setChatInput] = useState("");
@@ -74,13 +77,46 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       playlistUrl: usePlaylist && playlistUrl.trim() ? playlistUrl.trim() : undefined,
     };
     updateSettings(gameSettings);
-    createRoom(newRoomName, newPassword || undefined, maxPlayers);
+    createRoom(newRoomName, usePassword && newPassword ? newPassword : undefined, maxPlayers);
   };
 
-  const handleJoin = async () => {
+  const handleJoin = async (passwordOverride?: string) => {
     if (!joinCodeInput.trim()) return;
-    await joinRoom(joinCodeInput.trim().toUpperCase(), joinPasswordInput || undefined);
+    setJoinError(null);
+    const success = await joinRoom(
+      joinCodeInput.trim().toUpperCase(),
+      passwordOverride || undefined
+    );
+    if (!success) {
+      // If failed, it might be a password-protected room
+      // Show password modal so user can enter the password
+      setShowPasswordModal(true);
+    }
   };
+
+  const handlePasswordSubmit = async () => {
+    if (!joinPasswordInput.trim()) {
+      setJoinError(language === "th" ? "กรุณาใส่รหัสผ่าน" : "Please enter a password");
+      return;
+    }
+    const success = await joinRoom(
+      joinCodeInput.trim().toUpperCase(),
+      joinPasswordInput
+    );
+    if (!success) {
+      setJoinError(language === "th" ? "รหัสผ่านไม่ถูกต้อง" : "Incorrect password");
+    } else {
+      setShowPasswordModal(false);
+      setJoinPasswordInput("");
+    }
+  };
+
+  const sectionHeader = (emoji: string, text: string) => (
+    <div className="section-header">
+      <span className="section-emoji">{emoji}</span>
+      <span className="section-label">{text}</span>
+    </div>
+  );
 
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
@@ -133,8 +169,8 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
             {activeTab === "join" ? (
               /* JOIN ROOM FORM */
               <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <div>
-                  <label className="modal-label">{language === "th" ? "รหัสห้อง" : "Room Code"}</label>
+                <div className="setup-section-card">
+                  {sectionHeader("🔑", language === "th" ? "รหัสห้อง" : "Room Code")}
                   <input
                     type="text"
                     maxLength={6}
@@ -143,33 +179,27 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                     placeholder={language === "th" ? "กรอกรหัสห้อง 6 หลัก" : "ENTER 6-DIGIT CODE"}
                     className="input-text"
                     style={{ textAlign: "center", fontSize: "1.4rem", fontWeight: "800", letterSpacing: "0.1em", textTransform: "uppercase" }}
-                  />
-                </div>
-
-                <div>
-                  <label className="modal-label">{language === "th" ? "รหัสผ่านห้อง (ถ้ามี)" : "Password (If required)"}</label>
-                  <input
-                    type="password"
-                    value={joinPasswordInput}
-                    onChange={(e) => setJoinPasswordInput(e.target.value)}
-                    placeholder={language === "th" ? "รหัสผ่านห้อง" : "Room Password"}
-                    className="input-text"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && joinCodeInput.trim()) handleJoin();
+                    }}
                   />
                 </div>
 
                 <button
-                  onClick={handleJoin}
+                  onClick={() => handleJoin()}
                   disabled={!joinCodeInput.trim()}
                   className="btn btn-primary ripple"
-                  style={{ marginTop: "12px" }}
                 >
                   {translations[language].joinRoom}
                 </button>
               </div>
             ) : (
               /* CREATE ROOM FORM */
-              <div style={{ display: "flex", flexDirection: "column", gap: "16px", maxHeight: "60vh", overflowY: "auto", paddingRight: "4px" }}>
-                <div className="grid-2">
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "60vh", overflowY: "auto", paddingRight: "4px" }}>
+                
+                {/* Room Info Card */}
+                <div className="setup-section-card">
+                  {sectionHeader("🏠", language === "th" ? "ข้อมูลห้อง" : "Room Info")}
                   <div>
                     <label className="modal-label">{language === "th" ? "ชื่อห้อง" : "Room Name"}</label>
                     <input
@@ -181,123 +211,136 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                     />
                   </div>
 
-                  <div>
-                    <label className="modal-label">{language === "th" ? "รหัสผ่านห้อง (ถ้ามี)" : "Password (Optional)"}</label>
+                  {/* Password Toggle */}
+                  <div className="toggle-row" style={{ margin: 0, padding: "12px" }}>
+                    <div>
+                      <h4 style={{ fontWeight: 700, fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                        <Lock size={14} /> {language === "th" ? "ตั้งรหัสผ่านห้อง" : "Room Password"}
+                      </h4>
+                      <p style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                        {language === "th" ? "เปิดเพื่อตั้งรหัสเข้าห้อง" : "Enable to set a room password"}
+                      </p>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={usePassword}
+                        onChange={(e) => {
+                          setUsePassword(e.target.checked);
+                          if (!e.target.checked) setNewPassword("");
+                        }}
+                      />
+                      <span className="toggle-slider"></span>
+                    </label>
+                  </div>
+                  {usePassword && (
                     <input
                       type="password"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder={language === "th" ? "ปล่อยว่างเพื่อเป็นสาธารณะ" : "Leave blank for public"}
+                      placeholder={language === "th" ? "ตั้งรหัสผ่านห้อง" : "Set room password"}
                       className="input-text"
+                      style={{ animation: "slideUpFade 0.2s var(--ease-spring) forwards" }}
                     />
-                  </div>
+                  )}
                 </div>
 
-                {/* Playlist selector toggle */}
-                <div className="toggle-row" style={{ margin: 0, padding: "12px" }}>
-                  <div>
-                    <h4 style={{ fontWeight: "700", fontSize: "0.85rem" }}>Spotify Playlist</h4>
-                    <p style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                      {language === "th" ? "เล่นจากเพลย์ลิสต์ Spotify" : "Play with custom Spotify playlist"}
-                    </p>
-                  </div>
-                  <label className="toggle-switch">
-                    <input
-                      type="checkbox"
-                      checked={usePlaylist}
-                      onChange={(e) => setUsePlaylist(e.target.checked)}
-                    />
-                    <span className="toggle-slider"></span>
-                  </label>
-                </div>
-
-                {usePlaylist ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <label className="modal-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                      <LinkIcon size={12} /> {language === "th" ? "ลิงก์เพลย์ลิสต์" : "Playlist Link"}
+                {/* Music Source Card */}
+                <div className="setup-section-card">
+                  {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
+                  <div className="toggle-row" style={{ margin: 0, padding: "12px" }}>
+                    <div>
+                      <h4 style={{ fontWeight: 700, fontSize: "0.85rem" }}>Spotify Playlist</h4>
+                      <p style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
+                        {language === "th" ? "เล่นจากเพลย์ลิสต์ Spotify" : "Play with custom Spotify playlist"}
+                      </p>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={usePlaylist}
+                        onChange={(e) => setUsePlaylist(e.target.checked)}
+                      />
+                      <span className="toggle-slider"></span>
                     </label>
-                    <input
-                      type="text"
-                      placeholder="https://open.spotify.com/playlist/..."
-                      value={playlistUrl}
-                      onChange={(e) => setPlaylistUrl(e.target.value)}
-                      className="input-text"
-                    />
                   </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    <label className="modal-label">{language === "th" ? "เลือกแนวเพลง" : "Genres"}</label>
-                    <div className="genre-grid">
-                      {GENRES.map((genre) => {
-                        const isSelected = selectedGenres.includes(genre);
-                        return (
+
+                  {usePlaylist ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <label className="modal-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                        <LinkIcon size={12} /> {language === "th" ? "ลิงก์เพลย์ลิสต์" : "Playlist Link"}
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="https://open.spotify.com/playlist/..."
+                        value={playlistUrl}
+                        onChange={(e) => setPlaylistUrl(e.target.value)}
+                        className="input-text"
+                      />
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                      <label className="modal-label">{language === "th" ? "เลือกแนวเพลง" : "Genres"}</label>
+                      <div className="genre-grid">
+                        {GENRES.map((genre) => (
                           <button
                             key={genre}
                             onClick={() => toggleGenre(genre)}
-                            className={`genre-btn ${isSelected ? "selected" : ""}`}
+                            className={`genre-btn ${selectedGenres.includes(genre) ? "selected" : ""}`}
                             style={{ padding: "8px 12px", fontSize: "0.85rem" }}
                           >
                             {genre}
                           </button>
-                        );
-                      })}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                <div className="grid-2">
-                  <div>
-                    <label className="modal-label">{translations[language].songCount}</label>
-                    <select
-                      value={numSongs}
-                      onChange={(e) => setNumSongs(parseInt(e.target.value))}
-                      className="select-dropdown"
-                    >
-                      <option value={5}>5 {language === "th" ? "เพลง" : "Songs"}</option>
-                      <option value={10}>10 {language === "th" ? "เพลง" : "Songs"}</option>
-                      <option value={20}>20 {language === "th" ? "เพลง" : "Songs"}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="modal-label">{translations[language].ansDuration}</label>
-                    <select
-                      value={answerDuration}
-                      onChange={(e) => setAnswerDuration(parseInt(e.target.value))}
-                      className="select-dropdown"
-                    >
-                      <option value={5}>5 {language === "th" ? "วินาที" : "Seconds"}</option>
-                      <option value={10}>10 {language === "th" ? "วินาที" : "Seconds"}</option>
-                      <option value={15}>15 {language === "th" ? "วินาที" : "Seconds"}</option>
-                      <option value={20}>20 {language === "th" ? "วินาที" : "Seconds"}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="modal-label">{language === "th" ? "ความยาวคลิปเสียง" : "Audio Length"}</label>
-                    <select
-                      value={clipDuration}
-                      onChange={(e) => setClipDuration(parseInt(e.target.value))}
-                      className="select-dropdown"
-                    >
-                      <option value={3}>3 {language === "th" ? "วินาที" : "Seconds"}</option>
-                      <option value={5}>5 {language === "th" ? "วินาที" : "Seconds"}</option>
-                      <option value={8}>8 {language === "th" ? "วินาที" : "Seconds"}</option>
-                      <option value={10}>10 {language === "th" ? "วินาที" : "Seconds"}</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="modal-label">{language === "th" ? "ผู้เล่นสูงสุด" : "Max Players"}</label>
-                    <select
-                      value={maxPlayers}
-                      onChange={(e) => setMaxPlayers(parseInt(e.target.value))}
-                      className="select-dropdown"
-                    >
-                      <option value={4}>4 {language === "th" ? "คน" : "Players"}</option>
-                      <option value={8}>8 {language === "th" ? "คน" : "Players"}</option>
-                      <option value={12}>12 {language === "th" ? "คน" : "Players"}</option>
-                    </select>
+                {/* Game Settings Card */}
+                <div className="setup-section-card">
+                  {sectionHeader("⚙️", language === "th" ? "ตั้งค่าเกม" : "Game Settings")}
+                  <div className="setup-grid-row" style={{ borderTop: "none", paddingTop: 0, marginTop: 0, gridTemplateColumns: "1fr 1fr" }}>
+                    <div className="setup-option-group">
+                      <label className="modal-label">{translations[language].songCount}</label>
+                      <div className="setup-option-selector">
+                        {[5, 10, 20].map((n) => (
+                          <button key={n} onClick={() => setNumSongs(n)} className={`setup-option-btn ${numSongs === n ? "selected" : ""}`}>
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="setup-option-group">
+                      <label className="modal-label">{translations[language].ansDuration}</label>
+                      <div className="setup-option-selector">
+                        {[5, 10, 15, 20].map((s) => (
+                          <button key={s} onClick={() => setAnswerDuration(s)} className={`setup-option-btn ${answerDuration === s ? "selected" : ""}`}>
+                            {s}{language === "th" ? "วิ" : "s"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="setup-option-group">
+                      <label className="modal-label">{language === "th" ? "ความยาวคลิป" : "Audio Length"}</label>
+                      <div className="setup-option-selector">
+                        {[3, 5, 8, 10].map((c) => (
+                          <button key={c} onClick={() => setClipDuration(c)} className={`setup-option-btn ${clipDuration === c ? "selected" : ""}`}>
+                            {c}{language === "th" ? "วิ" : "s"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="setup-option-group">
+                      <label className="modal-label">{language === "th" ? "ผู้เล่นสูงสุด" : "Max Players"}</label>
+                      <div className="setup-option-selector">
+                        {[4, 8, 16, 32, 64].map((p) => (
+                          <button key={p} onClick={() => setMaxPlayers(p)} className={`setup-option-btn ${maxPlayers === p ? "selected" : ""}`}>
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -305,14 +348,58 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                   onClick={handleCreate}
                   disabled={usePlaylist && !playlistUrl.trim()}
                   className="btn btn-primary ripple"
-                  style={{ marginTop: "12px" }}
+                  style={{ marginTop: "4px" }}
                 >
-                  {language === "th" ? "สร้างและเข้าร่วมห้อง" : "Create & Join Room"}
+                  {language === "th" ? "🎮 สร้างและเข้าร่วมห้อง" : "🎮 Create & Join Room"}
                 </button>
               </div>
             )}
           </div>
         </div>
+
+        {/* Password Required Modal */}
+        {showPasswordModal && (
+          <div className="modal-overlay">
+            <div className="modal-content animate-popup-bounce">
+              <button
+                onClick={() => { setShowPasswordModal(false); setJoinPasswordInput(""); setJoinError(null); }}
+                className="modal-close"
+              >
+                <X size={16} />
+              </button>
+              <h2 className="modal-title" style={{ color: "var(--orange-core)" }}>
+                {language === "th" ? "🔒 ห้องนี้มีรหัสผ่าน" : "🔒 Password Required"}
+              </h2>
+              <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "16px" }}>
+                {language === "th"
+                  ? `ห้อง ${joinCodeInput.toUpperCase()} ต้องใส่รหัสผ่านเพื่อเข้าร่วม`
+                  : `Room ${joinCodeInput.toUpperCase()} requires a password to join`}
+              </p>
+              <input
+                type="password"
+                value={joinPasswordInput}
+                onChange={(e) => { setJoinPasswordInput(e.target.value); setJoinError(null); }}
+                placeholder={language === "th" ? "ใส่รหัสผ่านห้อง" : "Enter room password"}
+                className="input-text"
+                style={{ marginBottom: "12px" }}
+                onKeyDown={(e) => { if (e.key === "Enter") handlePasswordSubmit(); }}
+                autoFocus
+              />
+              {joinError && (
+                <p style={{ fontSize: "0.78rem", color: "var(--error)", fontWeight: 600, marginBottom: "8px" }}>
+                  ❌ {joinError}
+                </p>
+              )}
+              <button
+                onClick={handlePasswordSubmit}
+                className="btn btn-primary ripple"
+                disabled={!joinPasswordInput.trim()}
+              >
+                {language === "th" ? "เข้าร่วมห้อง" : "Join Room"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -481,12 +568,15 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           {isHost ? (
             <button
               onClick={startGame}
-              disabled={players.length < 2 && !(import.meta as any).env.DEV}
+              disabled={(players.length < 2 && !(import.meta as any).env.DEV) || !players.every(p => p.id === players[0].id || p.isReady)}
               className="btn btn-primary ripple"
               style={{ flex: 1, padding: "12px 20px", fontSize: "0.9rem" }}
             >
               <Play size={14} fill="currentColor" />
-              Start Game
+              {players.every(p => p.id === players[0].id || p.isReady) 
+                ? (language === "th" ? "เริ่มเกม" : "Start Game") 
+                : (language === "th" ? "รอทุกคนพร้อม..." : "Waiting for ready...")
+              }
             </button>
           ) : (
             <button

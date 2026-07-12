@@ -1,5 +1,12 @@
 export const translations = {
   th: {
+    pleaseWait: "กรุณารอสักครู่...",
+    loadingSongs: "กำลังโหลดเพลงนะ เม๊ยว! ...",
+    nameInvalid: "ชื่อต้องมีเพียงตัวอักษรไทย อังกฤษ และตัวเลขเท่านั้น (ห้ามเว้นวรรคหรือสัญลักษณ์)",
+    nameTaken: "ชื่อนี้มีผู้ใช้งานแล้ว กรุณาเลือกชื่ออื่น",
+    nameEmpty: "กรุณากรอกชื่อก่อนเริ่มต้นเล่นเกม",
+    forceNameTitle: "✨ ตั้งชื่อผู้เล่นของคุณ",
+    forceNameSub: "ยินดีต้อนรับเข้าสู่ Wutdasong! กรุณาตั้งชื่อเพื่อใช้ในการบันทึกคะแนนในลีดเดอร์บอร์ด",
     // Settings
     settingsTitle: "ตั้งค่าระบบ",
     musicVol: "🎵 ระดับเสียงเพลง",
@@ -38,8 +45,8 @@ export const translations = {
     // Game
     roundText: "รอบที่",
     scoreText: "คะแนนรวม",
-    correctIndicator: "✅ Correct",
-    falseIndicator: "❌ False",
+    correctIndicator: "✅ ถูกต้อง!",
+    falseIndicator: "❌ ผิดจ้า",
     timesUpIndicator: "⏰ หมดเวลา!",
     pointsGained: "แต้มที่ได้รับ!",
     tryAgainSub: "รอบหน้าเอาใหม่นะ T^T",
@@ -74,6 +81,13 @@ export const translations = {
     secPerSong: "วินาที/เพลง",
   },
   en: {
+    pleaseWait: "Please wait...",
+    loadingSongs: "Loading songs Meow...",
+    nameInvalid: "Name must contain only Thai, English, and numbers (no spaces or symbols)",
+    nameTaken: "This name is already taken. Please choose another name",
+    nameEmpty: "Please enter your name before playing",
+    forceNameTitle: "✨ Set Player Name",
+    forceNameSub: "Welcome to Wutdasong! Please set a name to save your score on the leaderboard.",
     // Settings
     settingsTitle: "Settings",
     musicVol: "🎵 Music Volume",

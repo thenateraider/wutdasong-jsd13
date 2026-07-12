@@ -114,21 +114,10 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     setPlaylistLoading(false);
   };
 
-  const sectionTitle = (emoji: string, text: string) => (
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
-      <span style={{ fontSize: "1rem" }}>{emoji}</span>
-      <span
-        style={{
-          fontFamily: "Outfit, sans-serif",
-          fontSize: "0.78rem",
-          fontWeight: 800,
-          color: "var(--text-mid)",
-          textTransform: "uppercase",
-          letterSpacing: "0.09em",
-        }}
-      >
-        {text}
-      </span>
+  const sectionHeader = (emoji: string, text: string) => (
+    <div className="section-header">
+      <span className="section-emoji">{emoji}</span>
+      <span className="section-label">{text}</span>
     </div>
   );
 
@@ -151,11 +140,19 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           🎮 {translations[language].setupTitle}
         </h2>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+        {/* Scrollable Setup Options Container (Max Height 75vh) */}
+        <div style={{
+          maxHeight: "55vh",
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: "18px",
+          paddingRight: "6px"
+        }}>
 
           {/* ── Source toggle ── */}
-          <div>
-            {sectionTitle("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
+          <div className="setup-section-card">
+            {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
             <div className="toggle-row" style={{ marginBottom: 0 }}>
               <div>
                 <h4 style={{ fontFamily: "Outfit, sans-serif", fontWeight: 800, fontSize: "0.90rem", color: "var(--text-dark)" }}>
@@ -182,8 +179,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
 
           {/* ── Playlist URL section ── */}
           {usePlaylist && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {sectionTitle("🔗", "Spotify Playlist")}
+            <div className="setup-section-card">
+              {sectionHeader("🔗", "Spotify Playlist")}
 
               {/* Input row with X and Search buttons */}
               <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
@@ -460,8 +457,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
 
           {/* ── Genre picker ── */}
           {!usePlaylist && (
-            <div>
-              {sectionTitle("🎸", language === "th" ? "เลือกแนวเพลง" : "Select Music Genres")}
+            <div className="setup-section-card">
+              {sectionHeader("🎸", language === "th" ? "เลือกแนวเพลง" : "Select Music Genres")}
               <div className="genre-grid">
                 {GENRES.map((genre) => (
                   <button
@@ -477,8 +474,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           )}
 
           {/* ── Settings grid ── */}
-          <div style={{ borderTop: "1px solid rgba(255,107,53,0.10)", paddingTop: "16px" }}>
-            {sectionTitle("⚙️", language === "th" ? "ตั้งค่าเกม" : "Game Settings")}
+          <div className="setup-section-card">
+            {sectionHeader("⚙️", language === "th" ? "ตั้งค่าเกม" : "Game Settings")}
             <div className="setup-grid-row" style={{ borderTop: "none", paddingTop: 0, marginTop: 0, gridTemplateColumns: "1fr 1fr" }}>
               <div className="setup-option-group">
                 <label className="modal-label">{translations[language].songCount}</label>
@@ -527,18 +524,20 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
               </div>
             </div>
           </div>
-
-          {/* Start button */}
-          <button
-            onClick={handleStart}
-            disabled={!canStart}
-            className="btn btn-primary ripple"
-            style={{ fontSize: "1rem", padding: "15px 24px" }}
-          >
-            <Play size={20} fill="currentColor" />
-            {translations[language].startGame}
-          </button>
         </div>
+      </div>
+
+      {/* Start Button Card Below */}
+      <div className="card" style={{ padding: "16px 20px", marginTop: "12px", border: "1.5px solid rgba(255, 107, 53, 0.25)" }}>
+        <button
+          onClick={handleStart}
+          disabled={!canStart}
+          className="btn btn-primary ripple"
+          style={{ fontSize: "1rem", padding: "14px 24px" }}
+        >
+          <Play size={20} fill="currentColor" />
+          {translations[language].startGame}
+        </button>
       </div>
     </div>
   );

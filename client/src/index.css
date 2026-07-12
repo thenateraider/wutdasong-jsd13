@@ -1053,6 +1053,36 @@ input:checked+.toggle-slider::before {
   gap: 6px;
 }
 
+.setup-section-card {
+  background: rgba(255, 255, 255, 0.50);
+  border: 1px solid rgba(255, 107, 53, 0.12);
+  border-radius: var(--r-lg);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.setup-section-card .section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.setup-section-card .section-header .section-emoji {
+  font-size: 1rem;
+}
+
+.setup-section-card .section-header .section-label {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text-mid);
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
 .setup-option-selector {
   display: grid;
   grid-auto-flow: column;
@@ -1279,8 +1309,8 @@ input:checked+.toggle-slider::before {
 
 .result-stats-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
   border-top: 1px solid rgba(255, 107, 53, 0.10);
   padding-top: 16px;
 }
@@ -1978,5 +2008,23 @@ input:checked+.toggle-slider::before {
 
   .menu-container {
     gap: 8px !important;
+  }
+}
+
+@keyframes countdownBounceScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  75% {
+    transform: scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
   }
 }

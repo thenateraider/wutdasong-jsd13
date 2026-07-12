@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useGameStore } from "../store/gameStore";
-import { Award, RotateCcw, Home, Award as Crown, BarChart3, Clock, CheckCircle } from "lucide-react";
+import { Award, RotateCcw, Home, Award as Crown, BarChart3, Clock, CheckCircle, Flame } from "lucide-react";
 import confetti from "canvas-confetti";
 import { translations } from "../utils/translations";
 
@@ -15,13 +15,16 @@ export function ResultScreen({ mode, onReset, onReturnHome, playClickSFX }: Resu
   const {
     singlePlayerScore,
     singlePlayerStats,
+    singlePlayerMaxCombo,
     rounds,
     players,
     leaveRoom,
     language,
+    saveHighScore,
+    socket
   } = useGameStore();
 
-  // Confetti 🎉
+  // Confetti 🎉 & Save Highscore
   useEffect(() => {
     confetti({ particleCount: 160, spread: 80, origin: { y: 0.6 } });
 
@@ -33,6 +36,18 @@ export function ResultScreen({ mode, onReset, onReturnHome, playClickSFX }: Resu
       if (Date.now() < end) requestAnimationFrame(frame);
     };
     frame();
+
+    // Auto-save high score to leaderboard API
+    const songCount = rounds.length || 10;
+    if (mode === "single") {
+      saveHighScore(singlePlayerScore, songCount);
+    } else if (mode === "multi" && socket) {
+      const myPlayer = players.find((p) => p.id === socket.id);
+      if (myPlayer) {
+        const { settings } = useGameStore.getState();
+        saveHighScore(myPlayer.score, settings.numSongs || 10);
+      }
+    }
   }, []);
 
   const totalSongs = rounds.length || 5;
@@ -172,6 +187,15 @@ export function ResultScreen({ mode, onReset, onReturnHome, playClickSFX }: Resu
                 <span className="result-stat-label">{language === "th" ? "ความเร็วเฉลี่ย" : "Avg Speed"}</span>
                 <div className="result-stat-val">{avgTime}s</div>
                 <div className="result-stat-sub">{language === "th" ? "ต่อข้อที่ตอบถูก" : "Per correct round"}</div>
+              </div>
+
+              <div className="result-stat-box">
+                <span className="result-stat-icon" style={{ color: "#FF9F1C" }}>
+                  <Flame size={20} />
+                </span>
+                <span className="result-stat-label">{language === "th" ? "คอมโบสูงสุด" : "Max Combo"}</span>
+                <div className="result-stat-val">x{singlePlayerMaxCombo}</div>
+                <div className="result-stat-sub">{language === "th" ? "ตอบถูกต่อเนื่อง" : "Consecutive correct"}</div>
               </div>
             </div>
           </div>

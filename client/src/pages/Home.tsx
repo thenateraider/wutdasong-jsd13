@@ -1,7 +1,37 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useGameStore } from "../store/gameStore";
-import { X } from "lucide-react";
+import { X, Dices } from "lucide-react";
 import { translations } from "../utils/translations";
+import axios from "axios";
+
+const API_URL = (import.meta as any).env.VITE_API_URL || "http://localhost:5000";
+
+const TH_ANIMALS = ["แมว", "หมา", "ช้าง", "เสือ", "สิงโต", "หมี", "ลิง", "กระต่าย", "หนู", "นก", "หมู", "ไก่", "เป็ด", "เต่า", "ม้า", "วัว", "แกะ", "แพะ", "กบ", "ปลา", "แพนด้า", "โคอาล่า", "สุนัขจิ้งจอก", "นกฮูก"];
+const EN_ANIMALS = ["Cat", "Dog", "Elephant", "Tiger", "Lion", "Bear", "Monkey", "Rabbit", "Mouse", "Bird", "Pig", "Chicken", "Duck", "Turtle", "Horse", "Cow", "Sheep", "Goat", "Frog", "Fish", "Panda", "Koala", "Fox", "Owl"];
+
+const generateRandomName = (lang: "th" | "en") => {
+  const list = lang === "th" ? TH_ANIMALS : EN_ANIMALS;
+  const animal = list[Math.floor(Math.random() * list.length)];
+  const num = Math.floor(Math.random() * 900) + 100; // 100 - 999
+  return `${animal}${num}`;
+};
+
+const formatDate = (dateStr: string, lang: "th" | "en") => {
+  if (!dateStr) return "";
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString(lang === "th" ? "th-TH" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    });
+  } catch (e) {
+    return "";
+  }
+};
 
 interface HomeProps {
   onStartSingle: () => void;
@@ -16,16 +46,113 @@ export function Home({
   onGoToMultiplayer,
   playClickSFX,
 }: HomeProps) {
-  const { playerName, playerAvatar, setPlayerInfo, language } = useGameStore();
+  const { playerName, playerAvatar, setPlayerInfo, language, leaderboard, fetchLeaderboard } = useGameStore();
+
+  const isGuest = !playerName || playerName === "Guest Player" || playerName === "ผู้เล่นทั่วไป" || playerName.trim() === "";
+  const [showForceNameModal, setShowForceNameModal] = useState(isGuest);
 
   const [nameInput, setNameInput] = useState(playerName || (language === "th" ? "ผู้เล่นทั่วไป" : "Guest Player"));
   const [avatarInput, setAvatarInput] = useState(playerAvatar || "🎧");
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [leaderboardTab, setLeaderboardTab] = useState<5 | 10 | 20>(10);
+  const [leaderboardPage, setLeaderboardPage] = useState(0);
+
+  // State for Force Name Modal
+  const [forceName, setForceName] = useState("");
+  const [forceAvatar, setForceAvatar] = useState(playerAvatar || "🎧");
+  const [forceError, setForceError] = useState<string | null>(null);
+  const [forceValidating, setForceValidating] = useState(false);
+
+  // State for Edit Profile Modal
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editValidating, setEditValidating] = useState(false);
+
+  // Validate Force Name
+  useEffect(() => {
+    if (!showForceNameModal) return;
+
+    const trimmed = forceName.trim();
+    if (!trimmed) {
+      setForceError(translations[language].nameEmpty);
+      return;
+    }
+    const regex = /^[a-zA-Z0-9\u0e00-\u0e7f]+$/;
+    if (!regex.test(trimmed)) {
+      setForceError(translations[language].nameInvalid);
+      return;
+    }
+
+    setForceError(null);
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        setForceValidating(true);
+        const res = await axios.get(`${API_URL}/api/leaderboard/check-name`, {
+          params: { name: trimmed }
+        });
+        if (res.data.exists) {
+          setForceError(translations[language].nameTaken);
+        } else {
+          setForceError(null);
+        }
+      } catch (err) {
+        console.error("Check name error", err);
+      } finally {
+        setForceValidating(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [forceName, showForceNameModal, language]);
+
+  // Validate Regular Edit Name
+  useEffect(() => {
+    if (!isEditingProfile) return;
+
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      setEditError(translations[language].nameEmpty);
+      return;
+    }
+    const regex = /^[a-zA-Z0-9\u0e00-\u0e7f]+$/;
+    if (!regex.test(trimmed)) {
+      setEditError(translations[language].nameInvalid);
+      return;
+    }
+
+    // If it's the current player name, it's valid
+    if (trimmed === playerName) {
+      setEditError(null);
+      return;
+    }
+
+    setEditError(null);
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        setEditValidating(true);
+        const res = await axios.get(`${API_URL}/api/leaderboard/check-name`, {
+          params: { name: trimmed }
+        });
+        if (res.data.exists) {
+          setEditError(translations[language].nameTaken);
+        } else {
+          setEditError(null);
+        }
+      } catch (err) {
+        console.error("Check name error", err);
+      } finally {
+        setEditValidating(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [nameInput, isEditingProfile, playerName, language]);
 
   const saveProfile = () => {
-    if (nameInput.trim()) {
+    if (nameInput.trim() && !editError && !editValidating) {
       setPlayerInfo(nameInput.trim(), avatarInput);
       setIsEditingProfile(false);
     }
@@ -87,7 +214,13 @@ export function Home({
 
           <div className="grid-2" style={{ marginTop: "2px" }}>
             <button
-              onClick={() => { playClickSFX(); setShowLeaderboard(true); }}
+              onClick={() => {
+                playClickSFX();
+                setLeaderboardTab(10);
+                setLeaderboardPage(0);
+                fetchLeaderboard(10);
+                setShowLeaderboard(true);
+              }}
               className="btn btn-secondary ripple"
               style={{ padding: "11px 14px", fontSize: "0.88rem" }}
             >
@@ -139,14 +272,68 @@ export function Home({
               <label className="modal-label">
                 {language === "th" ? "📝 ชื่อของคุณ" : "📝 Your Name"}
               </label>
-              <input
-                type="text"
-                maxLength={15}
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                className="input-text"
-                placeholder={translations[language].namePlaceholder}
-              />
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  maxLength={15}
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  className="input-text"
+                  placeholder={translations[language].namePlaceholder}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSFX();
+                    const newName = generateRandomName(language);
+                    setNameInput(newName);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ width: "48px", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  title={language === "th" ? "สุ่มชื่อ" : "Random Name"}
+                >
+                  <Dices size={20} />
+                </button>
+              </div>
+
+              {/* Fallback/Validation message below the input */}
+              {editError && (
+                <div style={{
+                  color: "#e53e3e",
+                  fontSize: "0.85rem",
+                  marginTop: "6px",
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}>
+                  ⚠️ {editError}
+                </div>
+              )}
+              {!editError && nameInput.trim() && !editValidating && (
+                <div style={{
+                  color: "#38a169",
+                  fontSize: "0.85rem",
+                  marginTop: "6px",
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}>
+                  ✅ {language === "th" ? "ชื่อนี้สามารถใช้งานได้" : "This name is available!"}
+                </div>
+              )}
+              {editValidating && (
+                <div style={{
+                  color: "var(--primary)",
+                  fontSize: "0.85rem",
+                  marginTop: "6px",
+                  fontWeight: 500
+                }}>
+                  ⏳ {language === "th" ? "กำลังตรวจสอบชื่อ..." : "Validating name..."}
+                </div>
+              )}
             </div>
 
             <div className="modal-buttons-row">
@@ -161,6 +348,7 @@ export function Home({
                 onClick={() => { playClickSFX(); saveProfile(); }}
                 className="btn btn-primary"
                 style={{ flex: 1 }}
+                disabled={!!editError || !nameInput.trim() || editValidating}
               >
                 {language === "th" ? "💾 บันทึก" : "💾 Save"}
               </button>
@@ -288,71 +476,255 @@ export function Home({
       {/* ── Leaderboard Modal ── */}
       {showLeaderboard && (
         <div className="modal-overlay">
-          <div className="modal-content animate-popup-bounce">
+          <div className="modal-content animate-popup-bounce" style={{ maxHeight: "80vh", display: "flex", flexDirection: "column", padding: "22px 20px" }}>
             <button
               onClick={() => { playClickSFX(); setShowLeaderboard(false); }}
               className="modal-close"
             >
               <X size={16} />
             </button>
-            <h2 className="modal-title" style={{ color: "var(--orange-core)" }}>
+            <h2 className="modal-title" style={{ color: "var(--orange-core)", marginBottom: "12px" }}>
               {language === "th" ? "🏆 ลีดเดอร์บอร์ด" : "🏆 Leaderboard"}
             </h2>
 
-            {/* Podium style rows */}
-            <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-              {[
-                { medal: "🥇", name: "Nont_Fan_#1", pts: "1,820" },
-                { medal: "🥈", name: "YoasobiLvr", pts: "1,540" },
-                { medal: "🥉", name: "ThreeManFan", pts: "1,310" },
-              ].map((row, i) => (
-                <div
-                  key={row.name}
-                  className="leaderboard-row"
-                  style={{
-                    background:
-                      i === 0
-                        ? "linear-gradient(135deg, rgba(255,215,0,0.14), rgba(255,179,71,0.10))"
-                        : undefined,
-                    border:
-                      i === 0
-                        ? "1px solid rgba(255,179,71,0.35)"
-                        : undefined,
+            {/* Song Count Tab Switcher */}
+            <div className="setup-option-selector" style={{ marginBottom: "16px", gridTemplateColumns: "1fr 1fr 1fr", gridAutoFlow: "unset" }}>
+              {([5, 10, 20] as const).map((num) => (
+                <button
+                  key={num}
+                  onClick={() => {
+                    playClickSFX();
+                    setLeaderboardTab(num);
+                    setLeaderboardPage(0);
+                    fetchLeaderboard(num);
                   }}
+                  className={`setup-option-btn ${leaderboardTab === num ? "selected" : ""}`}
                 >
-                  <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "1.4rem" }}>{row.medal}</span>
-                    <span style={{ fontWeight: 800, color: "var(--text-dark)" }}>
-                      {row.name}
-                    </span>
-                  </span>
-                  <span
-                    style={{
-                      fontWeight: 900,
-                      fontSize: "1rem",
-                      background: "var(--grad-text)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text",
-                    }}
-                  >
-                    {row.pts} {language === "th" ? "คะแนน" : "pts"}
-                  </span>
-                </div>
+                  {num} {language === "th" ? "เพลง" : "Songs"}
+                </button>
               ))}
             </div>
+
+            {/* Podium style rows (Locked to max 65vh) */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "40vh", overflowY: "auto", paddingRight: "4px", flex: 1 }}>
+              {leaderboard.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                  {language === "th" ? "ยังไม่มีสถิติถูกบันทึก เล่นสักตาเลย!" : "No records yet. Play a game!"}
+                </div>
+              ) : (
+                leaderboard.slice(leaderboardPage * 20, (leaderboardPage + 1) * 20).map((row, idx) => {
+                  const globalIndex = leaderboardPage * 20 + idx;
+                  let medal = `${globalIndex + 1}`;
+                  if (globalIndex === 0) medal = "🥇";
+                  else if (globalIndex === 1) medal = "🥈";
+                  else if (globalIndex === 2) medal = "🥉";
+
+                  return (
+                    <div
+                      key={globalIndex}
+                      className="leaderboard-row"
+                      style={{
+                        background:
+                          globalIndex === 0
+                            ? "linear-gradient(135deg, rgba(255,215,0,0.14), rgba(255,179,71,0.10))"
+                            : undefined,
+                        border:
+                          globalIndex === 0
+                            ? "1px solid rgba(255,179,71,0.35)"
+                            : undefined,
+                      }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        <span style={{ fontSize: "1.2rem", width: "24px", textAlign: "center" }}>{medal}</span>
+                        <span style={{ fontSize: "1.2rem" }}>{row.avatar}</span>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "1px" }}>
+                          <span style={{ fontWeight: 800, color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "120px" }} title={row.name}>
+                            {row.name}
+                          </span>
+                          {row.maxCombo !== undefined && row.maxCombo >= 2 && (
+                            <span style={{ fontSize: "0.68rem", color: "#FF9F1C", fontWeight: 700, display: "flex", alignItems: "center", gap: "2px" }}>
+                              🔥 {language === "th" ? `คอมโบสูงสุด x${row.maxCombo}` : `Max Combo x${row.maxCombo}`}
+                            </span>
+                          )}
+                        </div>
+                      </span>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "2px" }}>
+                        <span
+                          style={{
+                            fontWeight: 900,
+                            fontSize: "1.02rem",
+                            background: "var(--grad-text)",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                            backgroundClip: "text",
+                          }}
+                        >
+                          {row.score.toLocaleString()} {language === "th" ? "คะแนน" : "pts"}
+                        </span>
+                        {row.date && (
+                          <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", opacity: 0.85, fontWeight: 500 }}>
+                            {formatDate(row.date, language)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            {leaderboard.length > 20 && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px", paddingTop: "10px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                <button
+                  disabled={leaderboardPage === 0}
+                  onClick={() => { playClickSFX(); setLeaderboardPage(p => p - 1); }}
+                  className="btn"
+                  style={{ width: "auto", padding: "6px 14px", fontSize: "0.80rem", background: "rgba(0,0,0,0.05)", color: "var(--text-dark)", cursor: leaderboardPage === 0 ? "not-allowed" : "pointer", opacity: leaderboardPage === 0 ? 0.4 : 1 }}
+                >
+                  {language === "th" ? "◀ ก่อนหน้า" : "◀ Prev"}
+                </button>
+                <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-muted)" }}>
+                  {language === "th" ? "หน้า" : "Page"} {leaderboardPage + 1} / {Math.ceil(leaderboard.length / 20)}
+                </span>
+                <button
+                  disabled={(leaderboardPage + 1) * 20 >= leaderboard.length}
+                  onClick={() => { playClickSFX(); setLeaderboardPage(p => p + 1); }}
+                  className="btn"
+                  style={{ width: "auto", padding: "6px 14px", fontSize: "0.80rem", background: "rgba(0,0,0,0.05)", color: "var(--text-dark)", cursor: (leaderboardPage + 1) * 20 >= leaderboard.length ? "not-allowed" : "pointer", opacity: (leaderboardPage + 1) * 20 >= leaderboard.length ? 0.4 : 1 }}
+                >
+                  {language === "th" ? "ถัดไป ▶" : "Next ▶"}
+                </button>
+              </div>
+            )}
 
             <p
               style={{
                 textAlign: "center",
-                fontSize: "0.82rem",
+                fontSize: "0.78rem",
                 color: "var(--text-muted)",
-                marginTop: "18px",
+                marginTop: "12px",
                 fontWeight: 600,
               }}
             >
-              {language === "th" ? "🎮 เล่นคนเดียวเพื่อเก็บคะแนนสูงสุด!" : "🎮 Play singleplayer to update your highscore!"}
+              {language === "th" ? "🎮 มาสิ มาทายกัน!" : "🎮 No shy, Beat It!"}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Force Name Modal ── */}
+      {showForceNameModal && (
+        <div className="modal-overlay" style={{ backdropFilter: "blur(12px)", zIndex: 100 }}>
+          <div className="modal-content animate-popup-bounce" style={{ maxWidth: "440px" }}>
+            <h2 className="modal-title" style={{ fontSize: "1.6rem", color: "var(--orange-core)" }}>
+              {translations[language].forceNameTitle}
+            </h2>
+            <p className="home-subtitle" style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "18px" }}>
+              {translations[language].forceNameSub}
+            </p>
+
+            <div style={{ marginBottom: "18px" }}>
+              <label className="modal-label">
+                {language === "th" ? "🐾 เลือก Avatar" : "🐾 Choose Avatar"}
+              </label>
+              <div className="avatar-grid">
+                {AVATARS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    onClick={() => { playClickSFX(); setForceAvatar(emoji); }}
+                    className={`avatar-option-btn ${forceAvatar === emoji ? "selected" : ""}`}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: "24px", position: "relative" }}>
+              <label className="modal-label">
+                {language === "th" ? "📝 ชื่อผู้เล่นของคุณ" : "📝 Your Player Name"}
+              </label>
+              <div style={{ display: "flex", gap: "8px" }}>
+                <input
+                  type="text"
+                  maxLength={15}
+                  value={forceName}
+                  onChange={(e) => setForceName(e.target.value)}
+                  className="input-text"
+                  placeholder={translations[language].namePlaceholder}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    playClickSFX();
+                    const newName = generateRandomName(language);
+                    setForceName(newName);
+                  }}
+                  className="btn btn-secondary"
+                  style={{ width: "48px", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}
+                  title={language === "th" ? "สุ่มชื่อ" : "Random Name"}
+                >
+                  <Dices size={20} />
+                </button>
+              </div>
+
+              {/* Fallback/Validation message below the input */}
+              {forceError && (
+                <div style={{
+                  color: "#e53e3e",
+                  fontSize: "0.85rem",
+                  marginTop: "6px",
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}>
+                  ⚠️ {forceError}
+                </div>
+              )}
+              {!forceError && forceName.trim() && !forceValidating && (
+                <div style={{
+                  color: "#38a169",
+                  fontSize: "0.85rem",
+                  marginTop: "6px",
+                  fontWeight: 500,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}>
+                  ✅ {language === "th" ? "ชื่อนี้สามารถใช้งานได้" : "This name is available!"}
+                </div>
+              )}
+              {forceValidating && (
+                <div style={{
+                  color: "var(--primary)",
+                  fontSize: "0.85rem",
+                  marginTop: "6px",
+                  fontWeight: 500
+                }}>
+                  ⏳ {language === "th" ? "กำลังตรวจสอบชื่อ..." : "Validating name..."}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                if (!forceError && forceName.trim() && !forceValidating) {
+                  playClickSFX();
+                  setPlayerInfo(forceName.trim(), forceAvatar);
+                  setNameInput(forceName.trim());
+                  setAvatarInput(forceAvatar);
+                  setShowForceNameModal(false);
+                }
+              }}
+              className="btn btn-primary"
+              style={{ width: "100%" }}
+              disabled={!!forceError || !forceName.trim() || forceValidating}
+            >
+              🚀 {language === "th" ? "เริ่มต้นเล่นเกม!" : "Start Game!"}
+            </button>
           </div>
         </div>
       )}

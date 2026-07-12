@@ -158,17 +158,23 @@ export function GameScreen({
   const timerPercentage = (localTimer / settings.answerDuration) * 100;
   const isTimerLow = localTimer <= 3;
   const isRevealPhase = status === "reveal" && correctAnswer;
-  const isCorrect = correctAnswer && selectedChoiceId === correctAnswer.id;
+  const me = players.find((p) => p.id === useGameStore.getState().socket?.id);
+  const isCorrect = mode === "single"
+    ? (correctAnswer && selectedChoiceId === correctAnswer.id)
+    : (me ? me.lastAnswerCorrect : false);
 
   let pointsAdded = 0;
   if (isRevealPhase && correctAnswer) {
     if (mode === "single") {
-      pointsAdded = isCorrect ? (100 + Math.round((localTimer / settings.answerDuration) * 100)) : 0;
+      pointsAdded = useGameStore.getState().singlePlayerLastScoreAdded;
     } else {
-      const me = players.find((p) => p.id === useGameStore.getState().socket?.id);
       pointsAdded = me ? (me.lastScoreAdded || 0) : 0;
     }
   }
+
+  const currentMultiplier = mode === "single"
+    ? useGameStore.getState().singlePlayerStreak
+    : (me ? (me as any).streak : 1);
 
   // SVG circle math
   const RADIUS = 30;
@@ -515,6 +521,26 @@ export function GameScreen({
                           ? translations[language].timesUpIndicator
                           : translations[language].falseIndicator)}
                   </div>
+
+                  {isCorrect && currentMultiplier >= 2 && (
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        fontWeight: 900,
+                        color: "#FF9F1C",
+                        background: "rgba(255, 159, 28, 0.12)",
+                        padding: "2px 10px",
+                        borderRadius: "var(--r-full)",
+                        marginTop: "4px",
+                        alignSelf: "flex-start",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "2px"
+                      }}
+                    >
+                      🔥 Combo x{currentMultiplier}
+                    </div>
+                  )}
 
                   {/* Massive points pop! */}
                   {isCorrect ? (

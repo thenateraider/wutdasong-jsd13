@@ -92,6 +92,9 @@ interface GameState {
     wrong: number;
     timeTaken: number;
   };
+  singlePlayerStreak: number;
+  singlePlayerMaxCombo: number;
+  singlePlayerLastScoreAdded: number;
   
   language: "th" | "en";
   setLanguage: (lang: "th" | "en") => void;
@@ -108,6 +111,13 @@ interface GameState {
   startGame: () => void;
   submitGuess: (choiceId: string, timeRemaining: number) => void;
   
+  // Leaderboard state
+  leaderboard: Array<{ name: string; avatar: string; score: number; songCount: number; maxCombo?: number; date: string }>;
+  fetchLeaderboard: (songCount?: number) => Promise<void>;
+  saveHighScore: (score: number, songCountOverride?: number) => Promise<void>;
+  highScoreSaved: boolean;
+  countdown: number | null;
+
   // Singleplayer actions
   startSingleplayer: (settings: GameSettings) => Promise<void>;
   submitSingleplayerGuess: (choiceId: string, timeRemaining: number) => void;
@@ -116,13 +126,20 @@ interface GameState {
   resetSingleplayer: () => void;
 }
 
+const getBrowserLanguage = (): "th" | "en" => {
+  const saved = localStorage.getItem("wutdasong_lang");
+  if (saved === "th" || saved === "en") return saved;
+  const browserLang = navigator.language || (navigator as any).userLanguage || "en";
+  return browserLang.toLowerCase().startsWith("th") ? "th" : "en";
+};
+
 export const useGameStore = create<GameState>((set, get) => ({
   socket: null,
   playerName: localStorage.getItem("wutdasong_name") || "",
   playerAvatar: localStorage.getItem("wutdasong_avatar") || "🎧",
   
-  mode: null,
-  status: "home",
+  mode: (sessionStorage.getItem("wutdasong_mode") as any) || null,
+  status: (sessionStorage.getItem("wutdasong_status") as any) || "home",
   loading: false,
   loadingMessage: null,
   
@@ -151,15 +168,29 @@ export const useGameStore = create<GameState>((set, get) => ({
     wrong: 0,
     timeTaken: 0
   },
+  singlePlayerStreak: 0,
+  singlePlayerMaxCombo: 0,
+  singlePlayerLastScoreAdded: 0,
+  
+  leaderboard: [],
+  highScoreSaved: false,
+  countdown: null,
 
-  language: (localStorage.getItem("wutdasong_lang") as "th" | "en") || "th",
+  language: getBrowserLanguage(),
   setLanguage: (lang) => {
     localStorage.setItem("wutdasong_lang", lang);
     set({ language: lang });
   },
 
-  setMode: (mode) => set({ mode }),
-  setStatus: (status) => set({ status }),
+  setMode: (mode) => {
+    if (mode) sessionStorage.setItem("wutdasong_mode", mode);
+    else sessionStorage.removeItem("wutdasong_mode");
+    set({ mode });
+  },
+  setStatus: (status) => {
+    sessionStorage.setItem("wutdasong_status", status);
+    set({ status });
+  },
   setPlayerInfo: (name, avatar) => {
     localStorage.setItem("wutdasong_name", name);
     localStorage.setItem("wutdasong_avatar", avatar);
@@ -192,6 +223,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ loading: true, loadingMessage: data.message });
     });
 
+    socket.on("game_starting", (data: { countdown: number }) => {
+      set({ countdown: data.countdown, loading: false, loadingMessage: null });
+      const interval = setInterval(() => {
+        const currentVal = get().countdown;
+        if (currentVal !== null && currentVal > 1) {
+          set({ countdown: currentVal - 1 });
+        } else {
+          set({ countdown: null });
+          clearInterval(interval);
+        }
+      }, 1000);
+    });
+
     socket.on("start_game_error", (data: { error: string }) => {
       set({ loading: false, loadingMessage: null });
       alert(data.error);
@@ -219,6 +263,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           timer: data.answerDuration,
           selectedChoiceId: null,
           correctAnswer: null,
+          highScoreSaved: false,
         };
       });
     });
@@ -257,7 +302,16 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     socket.on("disconnect", () => {
       console.log("[Socket] Disconnected from server.");
-      set({ socket: null, roomCode: null, isHost: false, status: "home" });
+      const currentStatus = get().status;
+      const insideRoom = get().roomCode !== null;
+      const nextStatus = insideRoom ? "home" : currentStatus;
+      
+      if (nextStatus === "home") {
+        sessionStorage.setItem("wutdasong_status", "home");
+        sessionStorage.removeItem("wutdasong_mode");
+      }
+      
+      set({ socket: null, roomCode: null, isHost: false, status: nextStatus, countdown: null });
     });
 
     set({ socket });
@@ -296,7 +350,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             set({ chatMessages: [] });
             resolve(true);
           } else {
-            alert(res.error || "Failed to join room.");
+            // If the error is not password-related, show alert
+            if (res.error !== "Incorrect password." && res.error !== "Password required.") {
+              alert(res.error || "Failed to join room.");
+            }
             resolve(false);
           }
         }
@@ -308,7 +365,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { socket, roomCode } = get();
     if (socket && roomCode) {
       socket.emit("leave_room");
-      set({ roomCode: null, isHost: false, status: "home", chatMessages: [] });
+      set({ roomCode: null, isHost: false, status: "home", chatMessages: [], countdown: null });
     }
   },
 
@@ -375,7 +432,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         selectedChoiceId: null,
         correctAnswer: null,
         singlePlayerScore: 0,
-        singlePlayerStats: { correct: 0, wrong: 0, timeTaken: 0 }
+        singlePlayerStats: { correct: 0, wrong: 0, timeTaken: 0 },
+        singlePlayerStreak: 0,
+        singlePlayerMaxCombo: 0,
+        singlePlayerLastScoreAdded: 0,
+        highScoreSaved: false
       });
     } catch (error: any) {
       set({ loading: false, loadingMessage: null });
@@ -403,19 +464,30 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       let scoreAdded = 0;
       let timeTakenForRound = settings.answerDuration;
+      let nextStreak = get().singlePlayerStreak;
+      let nextMaxCombo = get().singlePlayerMaxCombo;
       
       if (isCorrect) {
         timeTakenForRound = Math.max(0, settings.answerDuration - timer);
         // Multiply exact float remaining seconds by 100 for high-score precision (e.g., 9.85s = 985 bonus)
         const bonus = Math.round(timer * 100);
-        scoreAdded = 100 + bonus;
+        const baseScore = 100 + bonus;
+        
+        nextStreak += 1;
+        nextMaxCombo = Math.max(nextMaxCombo, nextStreak);
+        scoreAdded = baseScore * nextStreak;
+      } else {
+        nextStreak = 0;
       }
 
       set((state) => ({
         loading: false,
         status: "reveal",
         correctAnswer: answer,
-        singlePlayerScore: singlePlayerScore + scoreAdded,
+        singlePlayerScore: state.singlePlayerScore + scoreAdded,
+        singlePlayerStreak: nextStreak,
+        singlePlayerMaxCombo: nextMaxCombo,
+        singlePlayerLastScoreAdded: scoreAdded,
         singlePlayerStats: {
           correct: state.singlePlayerStats.correct + (isCorrect ? 1 : 0),
           wrong: state.singlePlayerStats.wrong + (isCorrect ? 0 : 1),
@@ -443,6 +515,49 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  fetchLeaderboard: async (songCount = 10) => {
+    try {
+      const res = await axios.get(`${API_URL}/api/leaderboard`, {
+        params: { songCount }
+      });
+      set({ leaderboard: res.data });
+    } catch (err) {
+      console.error("[Leaderboard] Error fetching leaderboard:", err);
+    }
+  },
+
+  saveHighScore: async (score: number, songCountOverride?: number) => {
+    const { playerName, playerAvatar, settings, highScoreSaved, singlePlayerMaxCombo, socket } = get();
+    if (!playerName.trim() || highScoreSaved) return;
+
+    set({ highScoreSaved: true });
+
+    const count = typeof songCountOverride === "number" ? songCountOverride : settings.numSongs;
+
+    // Get maxCombo. For multiplayer, find player maxCombo. For singleplayer, use singlePlayerMaxCombo.
+    let finalMaxCombo = singlePlayerMaxCombo;
+    if (socket) {
+      const myPlayer = get().players.find((p) => p.id === socket.id);
+      if (myPlayer && typeof (myPlayer as any).maxCombo === "number") {
+        finalMaxCombo = (myPlayer as any).maxCombo;
+      }
+    }
+
+    try {
+      await axios.post(`${API_URL}/api/leaderboard`, {
+        name: playerName,
+        avatar: playerAvatar,
+        score,
+        songCount: count,
+        maxCombo: finalMaxCombo
+      });
+      // Refresh local copy with current setting
+      await get().fetchLeaderboard(count);
+    } catch (err) {
+      console.error("[Leaderboard] Error saving high score:", err);
+    }
+  },
+
   resetSingleplayer: () => {
     set({
       rounds: [],
@@ -450,7 +565,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedChoiceId: null,
       correctAnswer: null,
       singlePlayerScore: 0,
-      singlePlayerStats: { correct: 0, wrong: 0, timeTaken: 0 }
+      singlePlayerStats: { correct: 0, wrong: 0, timeTaken: 0 },
+      singlePlayerStreak: 0,
+      singlePlayerMaxCombo: 0,
+      singlePlayerLastScoreAdded: 0,
+      highScoreSaved: false
     });
   }
 }));
