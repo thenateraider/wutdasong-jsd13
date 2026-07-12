@@ -106,8 +106,13 @@ class RoomManager {
       return { error: "Room is full." };
     }
 
-    if (room.password && room.password !== password) {
-      return { error: "Incorrect password." };
+    if (room.password) {
+      if (!password) {
+        return { error: "Password required." };
+      }
+      if (room.password !== password) {
+        return { error: "Incorrect password." };
+      }
     }
 
     // Add player

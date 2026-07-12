@@ -21,6 +21,8 @@ export interface PlayerStats {
   lastAnswerCorrect: boolean | null;
   selectedChoiceId: string | null;
   timeRemainingSec: number;
+  streak: number;
+  maxCombo: number;
 }
 
 export class GameEngine {
@@ -50,7 +52,9 @@ export class GameEngine {
       lastScoreAdded: 0,
       lastAnswerCorrect: null,
       selectedChoiceId: null,
-      timeRemainingSec: 0
+      timeRemainingSec: 0,
+      streak: 0,
+      maxCombo: 0
     });
   }
 
@@ -75,6 +79,8 @@ export class GameEngine {
       player.lastScoreAdded = 0;
       player.lastAnswerCorrect = null;
       player.selectedChoiceId = null;
+      player.streak = 0;
+      player.maxCombo = 0;
     }
   }
 
@@ -131,17 +137,22 @@ export class GameEngine {
       player.lastAnswerCorrect = isCorrect;
 
       if (isCorrect) {
+        player.streak = (player.streak || 0) + 1;
+        player.maxCombo = Math.max(player.maxCombo || 0, player.streak);
+        
         // Calculate points: 100 base + time remaining * 5 bonus
         const timeTaken = Math.max(0, this.settings.answerDuration - guess.timeRemaining);
         player.totalTimeTaken += timeTaken;
 
         const bonus = Math.round(guess.timeRemaining * 5);
-        const scoreAdded = 100 + bonus;
+        const baseScore = 100 + bonus;
+        const scoreAdded = baseScore * player.streak;
 
         player.score += scoreAdded;
         player.lastScoreAdded = scoreAdded;
         player.correctAnswers += 1;
       } else {
+        player.streak = 0;
         const timeTaken = this.settings.answerDuration;
         player.totalTimeTaken += timeTaken;
         player.lastScoreAdded = 0;
@@ -158,6 +169,7 @@ export class GameEngine {
           player.lastScoreAdded = 0;
           player.wrongAnswers += 1;
           player.totalTimeTaken += this.settings.answerDuration;
+          player.streak = 0;
         }
       }
     }

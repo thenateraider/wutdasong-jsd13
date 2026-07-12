@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import musicService, { RoundData, GameTrack } from "./services/musicService";
 import roomManager, { Room } from "./game/RoomManager";
 import GameEngine, { GameSettings } from "./game/GameEngine";
+import { connectDB, Leaderboard, IssueReport } from "./db/mongodb";
 
 dotenv.config();
 
@@ -93,6 +94,74 @@ app.post("/api/singleplayer/reveal", (req, res) => {
   singleplayerAnswers.delete(questionId);
 
   res.json({ answer });
+});
+
+// Leaderboard: Fetch top 100 players (or paginated) filtered by songCount
+app.get("/api/leaderboard", async (req, res) => {
+  try {
+    const songCount = parseInt(req.query.songCount as string) || 10;
+    const list = await Leaderboard.find({ songCount }).sort({ score: -1 }).limit(100);
+    res.json(list);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to fetch leaderboard: " + err.message });
+  }
+});
+
+// Leaderboard: Check if username already exists
+app.get("/api/leaderboard/check-name", async (req, res) => {
+  try {
+    const { name } = req.query;
+    if (!name) return res.json({ exists: false });
+    const count = await Leaderboard.countDocuments({ name: String(name).trim() });
+    res.json({ exists: count > 0 });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to check name: " + err.message });
+  }
+});
+
+// Leaderboard: Post a new score, scoped by name AND songCount (guarantees atomic single record)
+app.post("/api/leaderboard", async (req, res) => {
+  try {
+    const { name, avatar, score, songCount, maxCombo } = req.body;
+    const targetSongCount = typeof songCount === "number" ? songCount : 10;
+
+    if (!name || typeof score !== "number") {
+      return res.status(400).json({ error: "Name and score are required." });
+    }
+
+    // Atomic find and update or insert if not exists
+    const record = await Leaderboard.findOneAndUpdate(
+      { name, songCount: targetSongCount },
+      {
+        $set: {
+          avatar,
+          score,
+          maxCombo: typeof maxCombo === "number" ? maxCombo : 1,
+          date: new Date()
+        }
+      },
+      { upsert: true, new: true }
+    );
+
+    res.json({ success: true, record });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to save high score: " + err.message });
+  }
+});
+
+// Report issue feedback endpoint
+app.post("/api/issues", async (req, res) => {
+  try {
+    const { description } = req.body;
+    if (!description || !description.trim()) {
+      return res.status(400).json({ error: "Description is required." });
+    }
+    const newIssue = new IssueReport({ description });
+    await newIssue.save();
+    res.json({ success: true, message: "Issue reported successfully." });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to submit issue: " + err.message });
+  }
 });
 
 const server = http.createServer(app);
@@ -294,6 +363,12 @@ io.on("connection", (socket: Socket) => {
     const room = roomManager.getRoom(data.code);
     if (!room || room.hostId !== socket.id || room.state !== "lobby") return;
 
+    // Check if all players are ready
+    const allReady = room.players.every(p => p.id === room.hostId || p.isReady);
+    if (!allReady) {
+      return socket.emit("start_game_error", { error: "All players must be ready before starting!" });
+    }
+
     try {
       io.to(room.code).emit("loading_game", { message: "Generating dynamic playlist from Spotify..." });
       
@@ -313,8 +388,16 @@ io.on("connection", (socket: Socket) => {
       await game.initialize(rounds);
       room.game = game;
       
-      // Start gameplay sequence
-      await startMultiplayerRound(room.code);
+      // Send game starting event with 5s countdown
+      io.to(room.code).emit("game_starting", { countdown: 5 });
+
+      // Start gameplay sequence after 5 seconds
+      setTimeout(async () => {
+        const activeRoom = roomManager.getRoom(data.code);
+        if (activeRoom && activeRoom.game && activeRoom.state === "lobby") {
+          await startMultiplayerRound(activeRoom.code);
+        }
+      }, 5000);
 
     } catch (err: any) {
       console.error("[Socket Start Game Error]:", err.message);
@@ -399,6 +482,13 @@ const handleDisconnect = (socket: Socket) => {
   }
 };
 
-server.listen(port, () => {
-  console.log(`[Server] Guess The Song Server running on port ${port}`);
-});
+const startServer = async () => {
+  // Connect to database first
+  await connectDB(process.env.MONGO_URI);
+
+  server.listen(port, () => {
+    console.log(`[Server] Guess The Song Server running on port ${port}`);
+  });
+};
+
+startServer();

@@ -1,5 +1,25 @@
 import axios from "axios";
 import { SEED_SONGS, SeedSong, STATIC_FALLBACK_SONGS } from "../db/songsData";
+import { CachedSong } from "../db/mongodb";
+
+function cleanSearchQuery(query: string): string {
+  return query
+    // Remove featured artists block like (feat. Artist), [feat Artist], (featuring...)
+    .replace(/\s*[\(\[][fF]eat\..*?[\)\]]/g, "")
+    .replace(/\s*[\(\[][fF]eatur.*?[\)\]]/g, "")
+    // Remove video versions like (Official Music Video), [Official Audio]
+    .replace(/\s*[\(\[][oO]fficial\s+[mM]usic\s+[vV]ideo[\)\]]/g, "")
+    .replace(/\s*[\(\[][oO]fficial\s+[vV]ideo[\)\]]/g, "")
+    .replace(/\s*[\(\[][oO]fficial\s+[aA]udio[\)\]]/g, "")
+    .replace(/\s*[\(\[][oO]fficial\s+[lL]yric\s+[vV]ideo[\)\]]/g, "")
+    .replace(/\s*[\(\[][lL]yric\s+[vV]ideo[\)\]]/g, "")
+    .replace(/\s*[\(\[][vV]ideo[\)\]]/g, "")
+    // Remove remaster versions like (Remastered 2020), [2018 Remaster]
+    .replace(/\s*[\(\[].*?[rR]emaster.*?[\)\]]/g, "")
+    // Remove single indicator
+    .replace(/\s*-\s*Single$/gi, "")
+    .trim();
+}
 
 export interface GameTrack {
   id: string;
@@ -99,11 +119,11 @@ class MusicService {
     }
   }
 
-  // Search iTunes Search API (very reliable for 30s previews, no keys needed)
   private async searchITunes(query: string): Promise<Partial<GameTrack> | null> {
     try {
+      const cleanedQuery = cleanSearchQuery(query);
       const response = await axios.get("https://itunes.apple.com/search", {
-        params: { term: query, entity: "musicTrack", limit: 1 },
+        params: { term: cleanedQuery, entity: "musicTrack", limit: 1 },
       });
 
       const track = response.data.results?.[0];
@@ -128,8 +148,89 @@ class MusicService {
     }
   }
 
+  // Search Spotify Web API for an artist's profile picture
+  private async searchSpotifyArtistImage(artistName: string): Promise<string | null> {
+    const token = await this.getSpotifyToken();
+    if (!token) return null;
+
+    try {
+      const response = await axios.get("https://api.spotify.com/v1/search", {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { q: artistName, type: "artist", limit: 1 },
+      });
+
+      const artist = response.data.artists?.items?.[0];
+      if (artist && artist.images?.[0]?.url) {
+        return artist.images[0].url;
+      }
+      return null;
+    } catch (error: any) {
+      console.error(`[Spotify] Error searching artist image for "${artistName}":`, error.message);
+      return null;
+    }
+  }
+
+  // Fetch artist profile image or fallback to an iTunes track's artwork, then standard placeholder
+  private async getArtistFallbackImage(artistName: string): Promise<string> {
+    // 1. Try Spotify artist profile image
+    const spotifyArtistImage = await this.searchSpotifyArtistImage(artistName);
+    if (spotifyArtistImage) return spotifyArtistImage;
+
+    // 2. Try iTunes search for artist to get any of their track's artwork
+    try {
+      const response = await axios.get("https://itunes.apple.com/search", {
+        params: { term: artistName, entity: "musicTrack", limit: 1 },
+      });
+      const track = response.data.results?.[0];
+      if (track && track.artworkUrl100) {
+        let artwork = track.artworkUrl100;
+        if (artwork.endsWith("100x100bb.jpg")) {
+          artwork = artwork.replace("100x100bb.jpg", "400x400bb.jpg");
+        }
+        return artwork;
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // 3. Absolute fallback placeholder
+    return "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop";
+  }
+
+
+  // Helper to save a song back to the database cache
+  private async cacheResolvedSong(spotifyId: string, track: GameTrack) {
+    try {
+      if (!track.previewUrl) return;
+      await CachedSong.findOneAndUpdate(
+        { spotifyId },
+        {
+          title: track.title,
+          artist: track.artist,
+          genre: track.genre,
+          previewUrl: track.previewUrl,
+          artworkUrl: track.artworkUrl,
+          album: track.album
+        },
+        { upsert: true, new: true }
+      );
+      console.log(`[MusicService] Cached: ${track.artist} - ${track.title}`);
+    } catch (err) {
+      console.warn("[MusicService] Failed to cache song:", err);
+    }
+  }
+
   // Helper to fetch details and preview url for a seed song
   public async fetchTrackDetails(seed: SeedSong): Promise<GameTrack | null> {
+    const resolved = await this.resolveTrackDetails(seed);
+    if (resolved && resolved.previewUrl) {
+      // Save it to cache background-ly
+      this.cacheResolvedSong(seed.id, resolved);
+    }
+    return resolved;
+  }
+
+  private async resolveTrackDetails(seed: SeedSong): Promise<GameTrack | null> {
     // If it's a playlist track with a preview URL already set
     if (seed.spotifyPreviewUrl) {
       // If we already have artwork, return immediately
@@ -152,12 +253,33 @@ class MusicService {
         artist: seed.artist,
         genre: seed.genre,
         previewUrl: seed.spotifyPreviewUrl,
-        artworkUrl: itunesForArt?.artworkUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop",
+        artworkUrl: itunesForArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist),
         album: itunesForArt?.album || seed.album || "Spotify Playlist",
       };
     }
 
     const query = seed.searchQuery || `${seed.artist} ${seed.title}`;
+
+    // 0. Try DB Cache first if using Spotify ID (or via query search query match)
+    try {
+      const cacheKey = seed.id;
+      const cached = await CachedSong.findOne({ spotifyId: cacheKey });
+      if (cached) {
+        console.log(`[MusicService] Cache Hit for: ${seed.artist} - ${seed.title}`);
+        return {
+          id: seed.id,
+          title: cached.title,
+          artist: cached.artist,
+          genre: seed.genre,
+          previewUrl: cached.previewUrl,
+          artworkUrl: cached.artworkUrl,
+          album: cached.album,
+        };
+      }
+    } catch (err) {
+      console.warn("[MusicService] Cache lookup error:", err);
+    }
+
     console.log(`[MusicService] Fetching details for: ${seed.artist} - ${seed.title} (Query: ${query})`);
 
     let details: Partial<GameTrack> | null = null;
@@ -216,7 +338,7 @@ class MusicService {
       artist: details.artist || seed.artist,
       genre: seed.genre,
       previewUrl: details.previewUrl,
-      artworkUrl: details.artworkUrl || "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=200&auto=format&fit=crop",
+      artworkUrl: details.artworkUrl || await this.getArtistFallbackImage(seed.artist),
       album: details.album || "Unknown Album",
     };
   }
@@ -412,8 +534,8 @@ class MusicService {
       throw new Error("No songs found matching selected parameters.");
     }
 
-    // 1. Filter out acoustic, acapella, cappella, instrumental, karaoke versions
-    const unwantedKeywords = ["acoustic", "acapella", "cappella", "instrumental", "instrument", "karaoke"];
+    // 1. Filter out acoustic, acapella, cappella, instrumental, karaoke, extended versions
+    const unwantedKeywords = ["acoustic", "acapella", "cappella", "instrumental", "instrument", "karaoke", "extended"];
     const filteredPool = pool.filter((song) => {
       const titleLower = song.title.toLowerCase();
       return !unwantedKeywords.some(keyword => titleLower.includes(keyword));
@@ -434,8 +556,13 @@ class MusicService {
       throw new Error("No valid songs remaining after applying filters.");
     }
 
-    // Shuffle pool
-    const shuffledPool = [...uniquePool].sort(() => Math.random() - 0.5);
+    // Shuffle pool using Fisher-Yates algorithm for true randomness
+    const shuffledPool = [...uniquePool];
+    for (let i = shuffledPool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+    }
+
     const rounds: RoundData[] = [];
     let roundIndex = 1;
 
