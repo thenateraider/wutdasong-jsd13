@@ -118,7 +118,7 @@ interface GameState {
   highScoreSaved: boolean;
   countdown: number | null;
   presetPlaylists: Array<{ name: string; url: string; imageUrl: string; trackCount: number; isDefault: boolean }>;
-  selectedPlaylistInfo: { name: string; imageUrl: string | null; trackCount: number } | null;
+  selectedPlaylistInfo: { name: string; url: string; imageUrl: string | null; trackCount: number } | null;
   fetchPresetPlaylists: () => Promise<void>;
   setSelectedPlaylist: (url: string) => Promise<void>;
 
@@ -589,6 +589,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({
           selectedPlaylistInfo: {
             name: defaultPl.name,
+            url: defaultPl.url,
             imageUrl: defaultPl.imageUrl,
             trackCount: defaultPl.trackCount
           }
@@ -607,6 +608,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         selectedPlaylistInfo: {
           name: matched.name,
+          url: matched.url,
           imageUrl: matched.imageUrl,
           trackCount: matched.trackCount
         }
@@ -627,6 +629,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         selectedPlaylistInfo: {
           name: res.data.name,
+          url: url,
           imageUrl: res.data.imageUrl,
           trackCount: res.data.trackCount
         }
@@ -637,6 +640,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({
         selectedPlaylistInfo: {
           name: "Custom Spotify Playlist",
+          url: url,
           imageUrl: null,
           trackCount: 0
         }
