@@ -4,7 +4,7 @@ import { X, Dices } from "lucide-react";
 import { translations } from "../utils/translations";
 import axios from "axios";
 
-const API_URL = (import.meta as any).env.VITE_API_URL || "http://localhost:5000";
+const API_URL = (import.meta as any).env.VITE_API_URL || ((import.meta as any).env.DEV ? "http://localhost:5000" : "");
 
 const TH_ANIMALS = ["แมว", "หมา", "ช้าง", "เสือ", "สิงโต", "หมี", "ลิง", "กระต่าย", "หนู", "นก", "หมู", "ไก่", "เป็ด", "เต่า", "ม้า", "วัว", "แกะ", "แพะ", "กบ", "ปลา", "แพนด้า", "โคอาล่า", "สุนัขจิ้งจอก", "นกฮูก"];
 const EN_ANIMALS = ["Cat", "Dog", "Elephant", "Tiger", "Lion", "Bear", "Monkey", "Rabbit", "Mouse", "Bird", "Pig", "Chicken", "Duck", "Turtle", "Horse", "Cow", "Sheep", "Goat", "Frog", "Fish", "Panda", "Koala", "Fox", "Owl"];

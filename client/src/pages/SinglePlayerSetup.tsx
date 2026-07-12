@@ -23,19 +23,11 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
   const [customLoading, setCustomLoading] = useState(false);
   const [customError, setCustomError] = useState<string | null>(null);
 
-  const handleCustomUrlChange = async (url: string) => {
-    setCustomUrl(url);
-    if (!url.trim()) {
-      setCustomError(null);
-      // Revert to default preset
-      const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
-      if (defaultPl) {
-        setSelectedPlaylist(defaultPl.url);
-      }
-      return;
-    }
+  const handleCustomUrlSearch = async () => {
+    const trimmed = customUrl.trim();
+    if (!trimmed) return;
 
-    if (!url.toLowerCase().includes("spotify")) {
+    if (!trimmed.toLowerCase().includes("spotify")) {
       setCustomError(language === "th" ? "กรุณาใส่ลิงก์ Spotify Playlist ที่ถูกต้อง" : "Please enter a valid Spotify Playlist URL");
       return;
     }
@@ -43,7 +35,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     setCustomLoading(true);
     setCustomError(null);
     try {
-      await setSelectedPlaylist(url);
+      await setSelectedPlaylist(trimmed);
     } catch (err) {
       setCustomError(language === "th" ? "ดึงข้อมูลล้มเหลว กรุณาตรวจสอบว่าเพลย์ลิสต์เป็น Public" : "Failed to fetch playlist. Make sure it is public.");
     } finally {
@@ -258,43 +250,154 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           {/* ── Custom URL Input Mode ── */}
           {useCustomPlaylist && (
             <div className="setup-section-card">
-              {sectionHeader("🔗", language === "th" ? "ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Enter custom playlist URL")}
-              <div style={{ position: "relative", width: "100%" }}>
-                <input
-                  type="text"
-                  placeholder="https://open.spotify.com/playlist/..."
-                  value={customUrl}
-                  onChange={(e) => handleCustomUrlChange(e.target.value)}
-                  className="input-text"
-                  style={{
-                    width: "100%",
-                    fontSize: "0.85rem",
-                    paddingRight: customLoading ? "38px" : "14px"
-                  }}
-                />
-                {customLoading && (
+              {sectionHeader("🔗", language === "th" ? "Spotify Playlist" : "Spotify Playlist")}
+
+              {/* Input row with X and Search buttons */}
+              <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
+                {/* URL input */}
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input
+                    type="text"
+                    placeholder={translations[language].playlistUrlPlaceholder}
+                    value={customUrl}
+                    onChange={(e) => {
+                      setCustomUrl(e.target.value);
+                      setCustomError(null);
+                    }}
+                    className="input-text"
+                    style={{
+                      paddingRight: customUrl ? "38px" : "14px",
+                      width: "100%",
+                      fontSize: "0.85rem",
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && customUrl.toLowerCase().includes("spotify")) {
+                        handleCustomUrlSearch();
+                      }
+                    }}
+                  />
+                  {/* Status icon inside input */}
                   <div
                     style={{
                       position: "absolute",
-                      right: "12px",
+                      right: "10px",
                       top: "50%",
                       transform: "translateY(-50%)",
                       display: "flex",
-                      alignItems: "center"
+                      alignItems: "center",
                     }}
                   >
-                    <Loader2 size={16} className="animate-spin" style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
+                    {customLoading && (
+                      <Loader2
+                        size={15}
+                        style={{
+                          color: "var(--orange-core)",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                    )}
+                    {!customLoading && selectedPlaylistInfo && customUrl.trim() && (
+                      <CheckCircle2 size={15} style={{ color: "var(--success)" }} />
+                    )}
+                    {!customLoading && customError && (
+                      <AlertCircle size={15} style={{ color: "var(--error)" }} />
+                    )}
                   </div>
+                </div>
+
+                {/* Clear (X) button */}
+                {customUrl && (
+                  <button
+                    onClick={() => {
+                      playClickSFX();
+                      setCustomUrl("");
+                      setCustomError(null);
+                      setSelectedPlaylist("");
+                    }}
+                    title={language === "th" ? "ล้างลิงค์" : "Clear URL"}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "42px",
+                      height: "42px",
+                      flexShrink: 0,
+                      borderRadius: "var(--r-md)",
+                      border: "1.5px solid rgba(239,68,68,0.30)",
+                      background: "rgba(239,68,68,0.08)",
+                      color: "var(--error)",
+                      cursor: "pointer",
+                      transition: "var(--t-fast)",
+                    }}
+                  >
+                    <X size={16} />
+                  </button>
                 )}
+
+                {/* Search button */}
+                <button
+                  onClick={() => {
+                    playClickSFX();
+                    handleCustomUrlSearch();
+                  }}
+                  disabled={!customUrl.toLowerCase().includes("spotify") || customLoading}
+                  title={language === "th" ? "ดึงข้อมูล playlist" : "Fetch playlist details"}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "5px",
+                    padding: "0 14px",
+                    height: "42px",
+                    flexShrink: 0,
+                    borderRadius: "var(--r-md)",
+                    border: "none",
+                    background: customUrl.toLowerCase().includes("spotify") && !customLoading
+                      ? "var(--grad-primary)"
+                      : "rgba(0,0,0,0.08)",
+                    color: customUrl.toLowerCase().includes("spotify") && !customLoading ? "#fff" : "var(--text-muted)",
+                    cursor: customUrl.toLowerCase().includes("spotify") && !customLoading ? "pointer" : "not-allowed",
+                    fontSize: "0.80rem",
+                    fontWeight: 700,
+                    transition: "var(--t-fast)",
+                    boxShadow: customUrl.toLowerCase().includes("spotify") && !customLoading
+                      ? "0 4px 14px rgba(255,107,53,0.35)"
+                      : "none",
+                  }}
+                >
+                  {customLoading ? (
+                    <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                  ) : (
+                    <span>🔍</span>
+                  )}
+                  {language === "th" ? "ค้นหา" : "Search"}
+                </button>
               </div>
+
+              {/* Error */}
               {customError && (
-                <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
-                  <AlertCircle size={12} />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    padding: "10px 14px",
+                    background: "var(--error-light)",
+                    border: "1px solid rgba(239,68,68,0.22)",
+                    borderRadius: "var(--r-md)",
+                    fontSize: "0.80rem",
+                    color: "var(--error)",
+                    fontWeight: 600,
+                    marginTop: "10px",
+                    animation: "slideUpFade 0.22s var(--ease-spring) forwards",
+                  }}
+                >
+                  <AlertCircle size={14} style={{ marginTop: "1px", flexShrink: 0 }} />
                   {customError}
                 </div>
               )}
 
-              {/* Custom Preview Card */}
+              {/* Playlist Preview Card */}
               {selectedPlaylistInfo && !customError && !customLoading && customUrl.trim() && (
                 <div
                   style={{
@@ -338,7 +441,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                     )}
                   </div>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
                     <div
                       style={{
                         display: "inline-flex",
@@ -386,15 +489,16 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                     </div>
                   </div>
 
+                  {/* Green check */}
                   <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
                 </div>
               )}
 
-              <p style={{ fontSize: "0.70rem", color: "var(--text-muted)", marginTop: "8px", display: "flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
+              <p style={{ fontSize: "0.70rem", color: "var(--text-muted)", marginTop: "10px", display: "flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
                 <Info size={11} />
                 {language === "th"
-                  ? "ตั้ง playlist เป็น Public ก่อนนะ! รองรับเฉพาะ Spotify Playlist เท่านั้น"
-                  : "Make sure your playlist is set to Public! Only Spotify Playlists are supported."}
+                  ? "ตั้ง playlist เป็น Public ก่อนนะ! แล้ว กดค้นหา"
+                  : "Make sure your playlist is set to Public! Then click Search."}
               </p>
             </div>
           )}
