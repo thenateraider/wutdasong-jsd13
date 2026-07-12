@@ -114,6 +114,7 @@ class RoomManager {
         return { error: "Incorrect password." };
       }
     }
+
     if (room.players.some((p) => p.name.trim().toLowerCase() === playerName.trim().toLowerCase())) {
       return { error: "ชื่อผู้เล่นนี้ซ้ำกับคนในห้อง / Player name is already taken in this lobby." };
     }
@@ -174,11 +175,9 @@ class RoomManager {
     }
 
     // If host left, transfer host
-    let hostChanged = false;
     if (room.hostId === playerId) {
       room.hostId = room.players[0].id;
       room.players[0].isReady = true; // New host is ready
-      hostChanged = true;
       console.log(`[RoomManager] Host transferred to ${room.players[0].name} in Room ${room.code}`);
     }
 
