@@ -48,6 +48,7 @@ export function GameScreen({
   const [guessLocked, setGuessLocked] = useState(false);
   const [timeTaken, setTimeTaken] = useState<number | null>(null);
   const [showRankings, setShowRankings] = useState(false);
+  const [rankingsCountdown, setRankingsCountdown] = useState(5);
 
   const [prevRoundIdx, setPrevRoundIdx] = useState(currentRoundIdx);
   const [prevStatus, setPrevStatus] = useState(status);
@@ -60,6 +61,7 @@ export function GameScreen({
       setGuessLocked(false);
       setTimeTaken(null);
       setShowRankings(false);
+      setRankingsCountdown(5);
     }
   }
 
@@ -72,6 +74,16 @@ export function GameScreen({
       setShowRankings(false);
     }
   }, [status, currentRoundIdx]);
+
+  // Countdown timer for rankings phase
+  useEffect(() => {
+    if (!showRankings) return;
+    setRankingsCountdown(5);
+    const interval = setInterval(() => {
+      setRankingsCountdown(prev => Math.max(0, prev - 1));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showRankings]);
 
   useEffect(() => {
     if (!currentRound) return;
@@ -411,9 +423,13 @@ export function GameScreen({
 
         {/* ── Row 3: Choice Buttons ── */}
         <div className="choice-list">
-          {currentRound.choices.map((choice, idx) => {
+          {(guessLocked
+            ? currentRound.choices.filter((c) => c.id === selectedChoiceId)
+            : currentRound.choices
+          ).map((choice, idx) => {
             const isSelected = selectedChoiceId === choice.id;
-            const letter = CHOICE_LETTERS[idx] || String(idx + 1);
+            const origIdx = currentRound.choices.findIndex((c) => c.id === choice.id);
+            const letter = CHOICE_LETTERS[origIdx] || String(origIdx + 1);
 
             return (
               <button
@@ -446,7 +462,6 @@ export function GameScreen({
                     {choice.title}
                   </div>
                 </div>
-                {/* Spacer for visual balance */}
                 <span style={{ width: 32, flexShrink: 0 }} />
               </button>
             );
@@ -510,7 +525,7 @@ export function GameScreen({
                     {/* Top 3 list (Larger, with avatars) */}
                     <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                       {top3.map((p, idx) => {
-                        const medalEmoji = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
+                        const rankLabel = idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd";
                         return (
                           <div
                             key={p.id}
@@ -534,7 +549,7 @@ export function GameScreen({
                             }}
                           >
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{medalEmoji}</span>
+                              <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{rankLabel}</span>
                               <span style={{ fontSize: "1.2rem" }}>{p.avatar}</span>
                               <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "var(--text-dark)" }}>
                                 {p.name}
@@ -874,6 +889,30 @@ export function GameScreen({
             <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: "#FFF" }}>
               📊 {language === "th" ? "อันดับปัจจุบัน" : "Current Rankings"}
             </h2>
+
+            {/* Countdown circle */}
+            <div className="circular-timer-wrapper" style={{ width: "56px", height: "56px" }}>
+              <svg className="timer-svg" viewBox="0 0 72 72">
+                <defs>
+                  <linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#FF6B35" />
+                    <stop offset="100%" stopColor="#FFB347" />
+                  </linearGradient>
+                </defs>
+                <circle className="timer-bg" cx="36" cy="36" r="30" />
+                <circle
+                  className="timer-progress"
+                  cx="36"
+                  cy="36"
+                  r="30"
+                  strokeDasharray={188.5}
+                  strokeDashoffset={188.5 - (rankingsCountdown / 5) * 188.5}
+                />
+              </svg>
+              <span className="timer-text" style={{ fontSize: "1.1rem" }}>
+                {rankingsCountdown}
+              </span>
+            </div>
 
             <div
               style={{

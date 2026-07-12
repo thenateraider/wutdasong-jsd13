@@ -21,12 +21,12 @@ export function useAudio(): UseAudioReturn {
   // Separate local storage keys for Music and SFX Volumes
   const [musicVolume, setMusicVolumeState] = useState(() => {
     const saved = localStorage.getItem("wutdasong_music_volume");
-    return saved ? parseFloat(saved) : 0.6; // Default music volume: 60%
+    return saved ? parseFloat(saved) : 0.85; // Default music volume: 85%
   });
 
   const [sfxVolume, setSfxVolumeState] = useState(() => {
     const saved = localStorage.getItem("wutdasong_sfx_volume");
-    return saved ? parseFloat(saved) : 0.8; // Default SFX volume: 80% (louder!)
+    return saved ? parseFloat(saved) : 1.0; // Default SFX volume: 100%
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
