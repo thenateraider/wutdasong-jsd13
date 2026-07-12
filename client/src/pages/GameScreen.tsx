@@ -543,7 +543,6 @@ export function GameScreen({
           </div>
         )}
       </div>
-      </div>
 
       {/* ── Reveal Overlay (first 4s) ── */}
       {isRevealPhase && correctAnswer && !showRankings && (
