@@ -402,9 +402,13 @@ class MusicService {
       }
     } catch (err: any) {
       console.warn(`[PlaylistInfo] Embed scraper failed: ${err.message}`);
+      // 429 = rate limited; don't bother with API fallback
+      if (err.response?.status === 429) {
+        return null;
+      }
     }
 
-    // Fallback: try Spotify API
+    // Fallback: try Spotify API (only if embed wasn't rate limited)
     try {
       const token = await this.getSpotifyToken();
       if (token) {
@@ -470,7 +474,12 @@ class MusicService {
       console.log(`[Spotify Embed] Successfully parsed ${tracks.length} tracks.`);
       return tracks;
     } catch (err: any) {
-      console.warn(`[Spotify Embed] Scraper failed: ${err.message}. Trying official Spotify API as fallback...`);
+      console.warn(`[Spotify Embed] Scraper failed: ${err.message}.`);
+      // 429 = rate limited; skip API fallback (it'll 403 anyway)
+      if (err.response?.status === 429) {
+        throw new Error("Spotify embed rate limited. Try again later.");
+      }
+      console.warn(`Trying official Spotify API as fallback...`);
       return this.fetchSpotifyPlaylistTracksViaAPI(playlistId);
     }
   }

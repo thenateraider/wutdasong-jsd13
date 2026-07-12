@@ -577,6 +577,8 @@ const seedPresetPlaylists = async () => {
     for (const pl of defaultPlaylists) {
       const plId = musicService.extractPlaylistId(pl.url);
       if (plId) {
+        // Delay between requests to avoid 429 rate limiting
+        await new Promise(r => setTimeout(r, 1500));
         const info = await musicService.fetchPlaylistInfo(plId);
         if (info) {
           await PresetPlaylist.findOneAndUpdate(
