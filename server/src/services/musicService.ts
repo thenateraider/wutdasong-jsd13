@@ -124,7 +124,9 @@ class MusicService {
         album: track.album?.name || "Unknown Album",
       };
     } catch (error: any) {
-      console.error(`[Spotify] Error searching for "${query}":`, error.message);
+      if (error.response?.status !== 403) {
+        console.warn(`[Spotify] Error searching for "${query}":`, error.message);
+      }
       return null;
     }
   }
@@ -175,7 +177,9 @@ class MusicService {
       }
       return null;
     } catch (error: any) {
-      console.error(`[Spotify] Error searching artist image for "${artistName}":`, error.message);
+      if (error.response?.status !== 403) {
+        console.warn(`[Spotify] Error searching artist image for "${artistName}":`, error.message);
+      }
       return null;
     }
   }

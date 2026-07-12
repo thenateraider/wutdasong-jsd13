@@ -781,7 +781,12 @@ export function GameScreen({
                   zIndex: 1,
                 }}
                 onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none";
+                  const img = e.target as HTMLImageElement;
+                  img.style.display = "none";
+                  const parent = img.parentElement;
+                  if (parent) {
+                    parent.style.background = "linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)";
+                  }
                 }}
               />
 
