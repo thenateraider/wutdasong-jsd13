@@ -469,9 +469,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       if (isCorrect) {
         timeTakenForRound = Math.max(0, settings.answerDuration - timer);
-        // Multiply exact float remaining seconds by 100 for high-score precision (e.g., 9.85s = 985 bonus)
-        const bonus = Math.round(timer * 100);
-        const baseScore = 100 + bonus;
+        // Formula: [100 + (10 * timer)] * nextStreak
+        const baseScore = Math.round(100 + (10 * timer));
         
         nextStreak += 1;
         nextMaxCombo = Math.max(nextMaxCombo, nextStreak);
