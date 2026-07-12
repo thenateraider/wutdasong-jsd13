@@ -39,7 +39,13 @@ interface HomeProps {
   playClickSFX: () => void;
 }
 
-const AVATARS = ["🎧", "🎤", "🎸", "🎹", "🥁", "🎶", "🕺", "💃", "🦊", "🐱", "🐶", "🌟", "👾", "🍓", "🌈"];
+const AVATARS = [
+  "🎧", "🎤", "🎸", "🎹", "🥁", "🎶", "🕺", "💃", "🐱", "🐶",
+  "🦊", "🦁", "🐯", "🐼", "🐨", "🐰", "🐵", "🦄", "🐔", "🐧",
+  "🦖", "🌟", "👾", "👽", "🤖", "🍕", "🍔", "🍓", "🍉", "🍒",
+  "🍩", "🍦", "🚀", "👑", "🌈", "🔥", "⚡", "🍀", "👻", "🕶️",
+  "🎮", "🎯"
+];
 
 export function Home({
   onStartSingle,
@@ -288,6 +294,8 @@ export function Home({
                     playClickSFX();
                     const newName = generateRandomName(language);
                     setNameInput(newName);
+                    const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+                    setAvatarInput(randomAvatar);
                   }}
                   className="btn btn-secondary"
                   style={{ width: "48px", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -661,6 +669,8 @@ export function Home({
                     playClickSFX();
                     const newName = generateRandomName(language);
                     setForceName(newName);
+                    const randomAvatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+                    setForceAvatar(randomAvatar);
                   }}
                   className="btn btn-secondary"
                   style={{ width: "48px", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}

@@ -471,7 +471,7 @@ export function GameScreen({
                 <span>{language === "th" ? "กระดานคะแนน" : "Scoreboard"}</span>
               </div>
 
-              {/* Scrollable List container */}
+              {/* Scrollable List container (compact bar graph) */}
               <div
                 style={{
                   overflowY: "auto",
@@ -479,64 +479,96 @@ export function GameScreen({
                   display: "flex",
                   flexDirection: "column",
                   gap: "6px",
-                  paddingRight: "4px",
+                  paddingRight: "2px",
                 }}
               >
                 {(() => {
                   const sorted = [...players].sort((a, b) => b.score - a.score);
-                  const top3 = sorted.slice(0, 3);
+                  const maxScore = Math.max(...players.map((p) => p.score), 1);
 
-                  return (
-                    <>
-                      {/* Top 3 list (Larger, with avatars) */}
-                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                        {top3.map((p, idx) => {
-                          const rankLabel = idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd";
-                          return (
-                            <div
-                              key={p.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "6px 12px",
-                                borderRadius: "12px",
-                                background: idx === 0
-                                  ? "rgba(255, 215, 0, 0.12)"
-                                  : idx === 1
-                                    ? "rgba(192, 192, 192, 0.12)"
-                                    : "rgba(205, 127, 50, 0.12)",
-                                border: `1px solid ${idx === 0
-                                    ? "rgba(255, 215, 0, 0.3)"
-                                    : idx === 1
-                                      ? "rgba(192, 192, 192, 0.3)"
-                                      : "rgba(205, 127, 50, 0.3)"
-                                  }`,
-                              }}
-                            >
-                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                                <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{rankLabel}</span>
-                                <span style={{ fontSize: "1.2rem" }}>{p.avatar}</span>
-                                <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "var(--text-dark)" }}>
-                                  {p.name}
-                                </span>
-                              </div>
-                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                                {status === "playing" && p.streak && p.streak >= 2 && (
-                                  <span style={{ fontSize: "0.75rem", fontWeight: 900, color: "#FF9F1C" }}>
-                                    🔥 {p.streak}x
-                                  </span>
-                                )}
-                                <span style={{ fontSize: "1.05rem", fontWeight: 950, color: "var(--orange-core)" }}>
-                                  {p.score}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
+                  return sorted.map((p) => {
+                    const isMe = p.id === useGameStore.getState().socket?.id;
+                    const barWidth = Math.max(5, (p.score / maxScore) * 100);
+
+                    return (
+                      <div
+                        key={p.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          width: "100%",
+                          background: isMe ? "rgba(255, 107, 53, 0.08)" : "transparent",
+                          padding: isMe ? "4px 8px" : "2px 8px",
+                          borderRadius: "8px",
+                        }}
+                      >
+                        {/* Emoji Avatar */}
+                        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{p.avatar}</span>
+                        
+                        {/* Player Name */}
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            fontSize: "0.85rem",
+                            color: "var(--text-dark)",
+                            width: "70px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {p.name}
+                        </span>
+
+                        {/* Bar Graph */}
+                        <div
+                          style={{
+                            flex: 1,
+                            height: "10px",
+                            background: "rgba(255, 107, 53, 0.1)",
+                            borderRadius: "5px",
+                            overflow: "hidden",
+                            position: "relative",
+                          }}
+                        >
+                          <div
+                            style={{
+                              height: "100%",
+                              width: `${barWidth}%`,
+                              background: isMe 
+                                ? "linear-gradient(90deg, #FF6B35 0%, #FF9F1C 100%)"
+                                : "linear-gradient(90deg, #FFB347 0%, #FFD580 100%)",
+                              borderRadius: "5px",
+                              transition: "width 0.4s ease-out",
+                            }}
+                          />
+                        </div>
+
+                        {/* Player score and streak combo */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                          {status === "playing" && p.streak && p.streak >= 2 && (
+                            <span style={{ fontSize: "0.7rem", fontWeight: 900, color: "#FF9F1C" }} title={`${p.streak} combo`}>
+                              🔥
+                            </span>
+                          )}
+                          <span
+                            style={{
+                              fontFamily: "Outfit, sans-serif",
+                              fontWeight: 950,
+                              fontSize: "0.95rem",
+                              color: "var(--orange-core)",
+                              minWidth: "35px",
+                              textAlign: "right",
+                            }}
+                          >
+                            {p.score}
+                          </span>
+                        </div>
                       </div>
-                    </>
-                  );
+                    );
+                  });
                 })()}
               </div>
             </div>
@@ -931,10 +963,10 @@ export function GameScreen({
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "1.2rem", fontWeight: 950, color: "var(--orange-core)" }}>
+                      <div style={{ fontSize: "1.2rem", fontWeight: 950, color: "#FFE0B2" }}>
                         {p.score}
                       </div>
-                      <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>
+                      <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
                         pts
                       </div>
                     </div>

@@ -372,10 +372,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   leaveRoom: () => {
     const { socket, roomCode } = get();
-    if (socket && roomCode) {
-      socket.emit("leave_room");
-      set({ roomCode: null, isHost: false, status: "home", chatMessages: [], countdown: null });
+    if (socket) {
+      if (roomCode) {
+        socket.emit("leave_room");
+      }
+      socket.disconnect();
     }
+    set({ socket: null, roomCode: null, isHost: false, status: "home", chatMessages: [], countdown: null });
   },
 
   toggleReady: () => {
