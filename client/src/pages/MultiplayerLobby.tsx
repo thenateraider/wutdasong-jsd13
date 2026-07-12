@@ -30,7 +30,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   } = useGameStore();
 
   const [activeTab, setActiveTab] = useState<"join" | "create">("join");
-  
+
   // Lobby creation forms
   const [newRoomName, setNewRoomName] = useState(`${playerName || "Host"}'s Lobby`);
   const [usePassword, setUsePassword] = useState(false);
@@ -229,7 +229,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
             ) : (
               /* CREATE ROOM FORM */
               <div style={{ display: "flex", flexDirection: "column", gap: "14px", maxHeight: "60vh", overflowY: "auto", paddingRight: "4px" }}>
-                
+
                 {/* Room Info Card */}
                 <div className="setup-section-card">
                   {sectionHeader("🏠", language === "th" ? "ข้อมูลห้อง" : "Room Info")}
@@ -315,7 +315,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                 {!useCustomPlaylist && (
                   <div className="setup-section-card">
                     {sectionHeader("🎧", language === "th" ? "หมวดเพลงที่เลือกอยู่" : "Selected Music Category")}
-                    
+
                     {selectedPlaylistInfo ? (
                       <div
                         style={{
@@ -989,12 +989,12 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
             <h3 style={{ fontSize: "1.1rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid var(--border)", paddingBottom: "12px", margin: 0 }}>
               <User size={18} style={{ color: "var(--primary)" }} /> Players ({players.length})
             </h3>
-            
+
             <div className="lobby-players-list">
               {players.map((p) => {
                 const isHostPlayer = p.id === players[0]?.id;
                 const isMe = p.id === useGameStore.getState().socket?.id;
-                
+
                 return (
                   <div
                     key={p.id}
@@ -1036,7 +1036,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         <div>
           <div className="lobby-chat-box">
             <h3 style={{ fontSize: "1rem", fontWeight: "800", borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "12px" }}>Chat Room</h3>
-            
+
             <div className="lobby-chat-messages">
               {chatMessages.length === 0 ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "0.8rem", color: "var(--text-muted)" }}>
@@ -1122,21 +1122,21 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
               style={{ flex: 1, padding: "12px 20px", fontSize: "0.9rem" }}
             >
               <Play size={14} fill="currentColor" />
-              {players.every(p => p.id === players[0].id || p.isReady) 
-                ? (language === "th" ? "เริ่มเกม" : "Start Game") 
+              {players.every(p => p.id === players[0].id || p.isReady)
+                ? (language === "th" ? "เริ่มเกม" : "Start Game")
                 : (language === "th" ? "รอทุกคนพร้อม..." : "Waiting for ready...")
               }
             </button>
           ) : (
             <button
               onClick={toggleReady}
-              className="btn ripple"
+              className="btn-secondary"
               style={{
                 flex: 1,
                 padding: "12px 20px",
                 fontSize: "0.9rem",
                 backgroundColor: players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady ? "var(--success)" : "var(--primary)",
-                color: "white"
+                color: "black"
               }}
             >
               {players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady
