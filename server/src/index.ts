@@ -507,12 +507,6 @@ const handleDisconnect = (socket: Socket) => {
 
 const seedPresetPlaylists = async () => {
   try {
-    const count = await PresetPlaylist.countDocuments();
-    if (count > 0) {
-      console.log("[Seeder] Playlists already seeded. Skipping.");
-      return;
-    }
-
     const defaultPlaylists = [
       {
         name: "Hot Hits Thailand",
@@ -585,23 +579,29 @@ const seedPresetPlaylists = async () => {
       if (plId) {
         const info = await musicService.fetchPlaylistInfo(plId);
         if (info) {
-          await PresetPlaylist.create({
-            name: pl.name,
-            url: pl.url,
-            imageUrl: info.imageUrl || "",
-            trackCount: info.trackCount || 0,
-            isDefault: pl.isDefault
-          });
+          await PresetPlaylist.findOneAndUpdate(
+            { url: pl.url },
+            {
+              name: pl.name,
+              imageUrl: info.imageUrl || "",
+              trackCount: info.trackCount || 0,
+              isDefault: pl.isDefault
+            },
+            { upsert: true, new: true }
+          );
           console.log(`[Seeder] Seeded playlist: ${pl.name} (${info.trackCount} tracks)`);
         } else {
           // Fallback if Spotify request fails
-          await PresetPlaylist.create({
-            name: pl.name,
-            url: pl.url,
-            imageUrl: "",
-            trackCount: 0,
-            isDefault: pl.isDefault
-          });
+          await PresetPlaylist.findOneAndUpdate(
+            { url: pl.url },
+            {
+              name: pl.name,
+              imageUrl: "",
+              trackCount: 0,
+              isDefault: pl.isDefault
+            },
+            { upsert: true, new: true }
+          );
           console.warn(`[Seeder] Warning: Could not fetch Spotify info for ${pl.name}. Saved with empty meta.`);
         }
       }
