@@ -10,7 +10,7 @@ export interface GameSettings {
   answerDuration: number;
   clipDuration: number;
   genres: string[];
-  difficulty: "Easy" | "Normal" | "Hard";
+  difficulty: "Easy" | "Hard";
   playlistUrl?: string;
 }
 
@@ -157,7 +157,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     answerDuration: 10,
     clipDuration: 5,
     genres: ["Random"],
-    difficulty: "Normal"
+    difficulty: "Easy"
   },
   chatMessages: [],
   

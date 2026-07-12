@@ -1508,7 +1508,7 @@ input:checked+.toggle-slider::before {
 .lobby-chat-box {
   display: flex;
   flex-direction: column;
-  height: 240px;
+  height: 320px;
   background: rgba(255, 255, 255, 0.45);
   border: var(--border-glass);
   border-radius: var(--r-md);
@@ -1570,7 +1570,62 @@ input:checked+.toggle-slider::before {
   gap: 12px;
 }
 
-/* ── How To Play Step ──────────────────────────────────────────── */
+/* ── Lobby Room Layout (in-room) ──────────────────────────────── */
+.lobby-room-root {
+  width: 100%;
+  max-width: 960px;
+  height: 95vh;
+  max-height: 95vh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.lobby-room-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.lobby-room-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.lobby-room-summary {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.45);
+  border: var(--border-glass);
+  border-radius: var(--r-md);
+  margin-bottom: 12px;
+}
+
+.lobby-room-footer {
+  flex-shrink: 0;
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  padding: 12px 0 0 0;
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.lobby-room-footer .btn {
+  flex: 1;
+}
+
+/* How To Play Step */
 .how-to-play-step {
   display: flex;
   gap: 12px;
@@ -2023,16 +2078,20 @@ input:checked+.toggle-slider::before {
   .lobby-player-name {
     font-size: 0.82rem !important;
   }
+  .lobby-room-root {
+    padding: 10px !important;
+  }
   .lobby-chat-box {
-    height: 160px !important;
+    height: 200px !important;
   }
-  .lobby-settings-summary-footer {
-    flex-direction: column !important;
-    align-items: stretch !important;
+  .lobby-room-header {
+    padding-bottom: 8px !important;
+    margin-bottom: 8px !important;
+  }
+  .lobby-room-footer {
     gap: 8px !important;
-  }
-  .lobby-footer-buttons {
-    max-width: 100% !important;
+    padding: 8px 0 0 0 !important;
+    margin-top: 8px !important;
   }
   .setup-grid-row {
     grid-template-columns: 1fr !important;

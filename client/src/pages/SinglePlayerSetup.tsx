@@ -12,9 +12,8 @@ interface SinglePlayerSetupProps {
 export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlayerSetupProps) {
   const { language, presetPlaylists, selectedPlaylistInfo, setSelectedPlaylist } = useGameStore();
   const [numSongs, setNumSongs] = useState<number>(10);
-  const [answerDuration, setAnswerDuration] = useState<number>(10);
+  const [difficulty, setDifficulty] = useState<"Easy" | "Hard">("Easy");
   const clipDuration = 5;
-  const difficulty = "Normal";
 
   const [useCustomPlaylist, setUseCustomPlaylist] = useState<boolean>(false);
   const [customUrl, setCustomUrl] = useState<string>("");
@@ -60,7 +59,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     
     const settings: GameSettings = {
       numSongs,
-      answerDuration,
+      answerDuration: difficulty === "Easy" ? 10 : 5,
       clipDuration,
       genres: [],
       difficulty,
@@ -549,15 +548,17 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
               </div>
 
               <div className="setup-option-group">
-                <label className="modal-label">{translations[language].ansDuration}</label>
+                <label className="modal-label">{language === "th" ? "ความยาก" : "Difficulty"}</label>
                 <div className="setup-option-selector">
-                  {[5, 10, 15, 20].map((sec) => (
+                  {(["Easy", "Hard"] as const).map((d) => (
                     <button
-                      key={sec}
-                      onClick={() => { playClickSFX(); setAnswerDuration(sec); }}
-                      className={`setup-option-btn ${answerDuration === sec ? "selected" : ""}`}
+                      key={d}
+                      onClick={() => { playClickSFX(); setDifficulty(d); }}
+                      className={`setup-option-btn ${difficulty === d ? "selected" : ""}`}
                     >
-                      {sec}{language === "th" ? "วิ" : "s"}
+                      {d === "Easy"
+                        ? (language === "th" ? "ง่าย 10วิ" : "Easy 10s")
+                        : (language === "th" ? "ยาก 5วิ" : "Hard 5s")}
                     </button>
                   ))}
                 </div>

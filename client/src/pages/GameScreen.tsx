@@ -55,15 +55,11 @@ export function GameScreen({
     setPrevRoundIdx(currentRoundIdx);
     setPrevStatus(status);
     if (status === "playing") {
-      setLocalTimer(mode === "single" ? settings.answerDuration : timer);
+      setLocalTimer(settings.answerDuration);
       setGuessLocked(false);
       setTimeTaken(null);
     }
   }
-
-  useEffect(() => {
-    if (mode === "multi") setLocalTimer(timer);
-  }, [timer, mode]);
 
   useEffect(() => {
     if (!currentRound) return;
@@ -72,7 +68,7 @@ export function GameScreen({
   }, [currentRoundIdx]);
 
   useEffect(() => {
-    if (mode !== "single" || status !== "playing" || !currentRound) return;
+    if (status !== "playing" || !currentRound) return;
     setGuessLocked(false);
     setLocalTimer(settings.answerDuration);
 

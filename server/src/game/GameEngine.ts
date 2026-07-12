@@ -5,7 +5,7 @@ export interface GameSettings {
   answerDuration: number; // 5, 10, 15, 20 (seconds)
   clipDuration: number;   // 3, 5, 8, 10 (seconds)
   genres: string[];       // Pop, Rock, Anime, Thai, etc.
-  difficulty: "Easy" | "Normal" | "Hard";
+  difficulty: "Easy" | "Hard";
   playlistUrl?: string;   // Optional custom Spotify Playlist URL
 }
 

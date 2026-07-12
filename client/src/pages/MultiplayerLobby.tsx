@@ -37,9 +37,8 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [newPassword, setNewPassword] = useState("");
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [numSongs, setNumSongs] = useState(10);
-  const [answerDuration, setAnswerDuration] = useState(10);
-  const [clipDuration, setClipDuration] = useState(5);
-  const [difficulty] = useState<"Easy" | "Normal" | "Hard">("Normal");
+  const [difficulty, setDifficulty] = useState<"Easy" | "Hard">("Easy");
+  const answerDuration = difficulty === "Easy" ? 10 : 5;
 
   const [useCustomPlaylist, setUseCustomPlaylist] = useState<boolean>(false);
   const [customUrl, setCustomUrl] = useState<string>("");
@@ -110,7 +109,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     const gameSettings: GameSettings = {
       numSongs,
       answerDuration,
-      clipDuration,
+      clipDuration: 5,
       genres: [],
       difficulty,
       playlistUrl: activeUrl || undefined,
@@ -688,21 +687,13 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                       </div>
                     </div>
                     <div className="setup-option-group">
-                      <label className="modal-label">{translations[language].ansDuration}</label>
+                      <label className="modal-label">{language === "th" ? "ความยาก" : "Difficulty"}</label>
                       <div className="setup-option-selector">
-                        {[5, 10, 15, 20].map((s) => (
-                          <button key={s} onClick={() => setAnswerDuration(s)} className={`setup-option-btn ${answerDuration === s ? "selected" : ""}`}>
-                            {s}{language === "th" ? "วิ" : "s"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="setup-option-group">
-                      <label className="modal-label">{language === "th" ? "ความยาวคลิป" : "Audio Length"}</label>
-                      <div className="setup-option-selector">
-                        {[3, 5, 8, 10].map((c) => (
-                          <button key={c} onClick={() => setClipDuration(c)} className={`setup-option-btn ${clipDuration === c ? "selected" : ""}`}>
-                            {c}{language === "th" ? "วิ" : "s"}
+                        {(["Easy", "Hard"] as const).map((d) => (
+                          <button key={d} onClick={() => setDifficulty(d)} className={`setup-option-btn ${difficulty === d ? "selected" : ""}`}>
+                            {d === "Easy"
+                              ? (language === "th" ? "ง่าย 10วิ" : "Easy 10s")
+                              : (language === "th" ? "ยาก 5วิ" : "Hard 5s")}
                           </button>
                         ))}
                       </div>
@@ -955,9 +946,9 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
   // If inside a room lobby, show the Lobby screen
   return (
-    <div className="page-container" style={{ maxWidth: "960px", justifyContent: "flex-start", maxHeight: "95vh", overflowY: "auto", paddingRight: "6px" }}>
+    <div className="lobby-room-root">
       {/* Header Room Info */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", paddingBottom: "16px", borderBottom: "1px solid var(--border)", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
+      <div className="lobby-room-header">
         <div>
           <span style={{ fontSize: "0.7rem", color: "var(--primary)", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.08em" }}>Multiplayer Lobby</span>
           <h2 style={{ fontSize: "1.75rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "8px", margin: "4px 0 0 0" }}>
@@ -966,183 +957,138 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           </h2>
         </div>
 
-        {/* Copyable Room Code Card */}
         <div className="lobby-room-code-card">
           <div style={{ marginRight: "16px" }}>
             <div className="lobby-room-code-title">Room Code</div>
             <div className="lobby-room-code-val">{roomCode}</div>
           </div>
-          <button
-            onClick={handleCopyCode}
-            className="btn-icon-only"
-            style={{ padding: "8px 12px" }}
-          >
+          <button onClick={handleCopyCode} className="btn-icon-only" style={{ padding: "8px 12px" }}>
             {copied ? <Check size={18} style={{ color: "var(--success)" }} /> : <Copy size={18} />}
           </button>
         </div>
       </div>
 
-      <div className="lobby-layout-grid">
-        {/* Players Section */}
-        <div>
-          <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column", gap: "16px" }}>
-            <h3 style={{ fontSize: "1.1rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid var(--border)", paddingBottom: "12px", margin: 0 }}>
-              <User size={18} style={{ color: "var(--primary)" }} /> Players ({players.length})
-            </h3>
-
-            <div className="lobby-players-list">
-              {players.map((p) => {
-                const isHostPlayer = p.id === players[0]?.id;
-                const isMe = p.id === useGameStore.getState().socket?.id;
-
-                return (
-                  <div
-                    key={p.id}
-                    className={`lobby-player-card ${isMe ? "is-me" : ""}`}
-                  >
-                    <div className="lobby-player-info">
-                      <span className="lobby-player-avatar">
-                        {p.avatar}
-                      </span>
-                      <div>
-                        <div className="lobby-player-name">
-                          {p.name}
-                          {isHostPlayer && <span style={{ color: "#F59E0B" }} title="Lobby Host">👑</span>}
-                          {isMe && <span style={{ fontSize: "0.65rem", padding: "2px 6px", backgroundColor: "var(--primary)", color: "white", borderRadius: "4px" }}>Me</span>}
-                        </div>
-                        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: "600" }}>Connected</div>
-                      </div>
-                    </div>
-
-                    <div>
-                      {p.isReady ? (
-                        <span className="lobby-player-status ready">
-                          Ready
-                        </span>
-                      ) : (
-                        <span className="lobby-player-status waiting">
-                          Waiting
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+      {/* Scrollable Content */}
+      <div className="lobby-room-scroll">
+        {/* Settings Summary */}
+        <div className="lobby-room-summary">
+          <h4 style={{ fontWeight: "800", fontSize: "0.85rem", color: "var(--text-main)" }}>Room Settings Summary</h4>
+          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
+            {settings.playlistUrl ? "Spotify Custom Playlist" : `Genres: ${settings.genres.join(", ")}`} • {settings.numSongs} rounds • {settings.difficulty} ({settings.answerDuration}s)
+          </p>
         </div>
 
-        {/* Live Chat Section */}
-        <div>
-          <div className="lobby-chat-box">
-            <h3 style={{ fontSize: "1rem", fontWeight: "800", borderBottom: "1px solid var(--border)", paddingBottom: "12px", marginBottom: "12px" }}>Chat Room</h3>
+        <div className="lobby-layout-grid">
+          {/* Players Section */}
+          <div>
+            <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column", gap: "12px" }}>
+              <h3 style={{ fontSize: "1.1rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid var(--border)", paddingBottom: "10px", margin: 0 }}>
+                <User size={18} style={{ color: "var(--primary)" }} /> Players ({players.length})
+              </h3>
 
-            <div className="lobby-chat-messages">
-              {chatMessages.length === 0 ? (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                  No messages yet. Say hello!
-                </div>
-              ) : (
-                chatMessages.map((msg, idx) => {
-                  const isSystem = msg.sender === "System";
-                  const isMe = msg.sender === playerName;
+              <div className="lobby-players-list">
+                {players.map((p) => {
+                  const isHostPlayer = p.id === players[0]?.id;
+                  const isMe = p.id === useGameStore.getState().socket?.id;
+
                   return (
-                    <div
-                      key={idx}
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: isSystem ? "center" : (isMe ? "flex-end" : "flex-start"),
-                        width: "100%"
-                      }}
-                    >
-                      {isSystem ? (
-                        <div className="chat-message-system">
-                          {msg.text}
-                        </div>
-                      ) : (
-                        <>
-                          <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "2px", padding: "0 4px" }}>{msg.sender}</span>
-                          <div className={`chat-message-bubble ${isMe ? "me" : "other"}`}>
-                            {msg.text}
+                    <div key={p.id} className={`lobby-player-card ${isMe ? "is-me" : ""}`}>
+                      <div className="lobby-player-info">
+                        <span className="lobby-player-avatar">{p.avatar}</span>
+                        <div>
+                          <div className="lobby-player-name">
+                            {p.name}
+                            {isHostPlayer && <span style={{ color: "#F59E0B" }} title="Lobby Host">👑</span>}
+                            {isMe && <span style={{ fontSize: "0.65rem", padding: "2px 6px", backgroundColor: "var(--primary)", color: "white", borderRadius: "4px" }}>Me</span>}
                           </div>
-                        </>
-                      )}
+                          <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: "600" }}>Connected</div>
+                        </div>
+                      </div>
+
+                      <div>
+                        {p.isReady ? (
+                          <span className="lobby-player-status ready">Ready</span>
+                        ) : (
+                          <span className="lobby-player-status waiting">Waiting</span>
+                        )}
+                      </div>
                     </div>
                   );
-                })
-              )}
-              <div ref={chatEndRef} />
+                })}
+              </div>
             </div>
+          </div>
 
-            <form onSubmit={handleSendChat} className="chat-send-form">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type a message..."
-                className="input-text"
-                style={{ padding: "10px 14px", fontSize: "0.85rem" }}
-              />
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ padding: "10px 16px", borderRadius: "12px", width: "auto" }}
-              >
-                <Send size={14} />
-              </button>
-            </form>
+          {/* Live Chat Section */}
+          <div>
+            <div className="lobby-chat-box">
+              <h3 style={{ fontSize: "1rem", fontWeight: "800", borderBottom: "1px solid var(--border)", paddingBottom: "10px", marginBottom: "10px" }}>Chat Room</h3>
+
+              <div className="lobby-chat-messages">
+                {chatMessages.length === 0 ? (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                    No messages yet. Say hello!
+                  </div>
+                ) : (
+                  chatMessages.map((msg, idx) => {
+                    const isSystem = msg.sender === "System";
+                    const isMe = msg.sender === playerName;
+                    return (
+                      <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: isSystem ? "center" : (isMe ? "flex-end" : "flex-start"), width: "100%" }}>
+                        {isSystem ? (
+                          <div className="chat-message-system">{msg.text}</div>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "2px", padding: "0 4px" }}>{msg.sender}</span>
+                            <div className={`chat-message-bubble ${isMe ? "me" : "other"}`}>{msg.text}</div>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+                <div ref={chatEndRef} />
+              </div>
+
+              <form onSubmit={handleSendChat} className="chat-send-form">
+                <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message..." className="input-text" style={{ padding: "10px 14px", fontSize: "0.85rem" }} />
+                <button type="submit" className="btn btn-primary" style={{ padding: "10px 16px", borderRadius: "12px", width: "auto" }}>
+                  <Send size={14} />
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Lobby Options Settings & Actions Footer */}
-      <div className="lobby-settings-summary-footer">
-        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-          <h4 style={{ fontWeight: "800", fontSize: "0.9rem", color: "var(--text-main)" }}>Room Settings Summary</h4>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-            {settings.playlistUrl ? "Spotify Custom Playlist" : `Genres: ${settings.genres.join(", ")}`} • {settings.numSongs} rounds • {settings.answerDuration}s guess time • {settings.clipDuration}s audio length • {settings.difficulty}
-          </p>
-        </div>
+      {/* Fixed Footer Buttons */}
+      <div className="lobby-room-footer">
+        <button onClick={leaveRoom} className="btn btn-secondary ripple" style={{ flex: 1, padding: "12px 20px", fontSize: "0.9rem" }}>
+          Leave Lobby
+        </button>
 
-        <div style={{ display: "flex", gap: "12px", width: "100%", maxWidth: "340px" }} className="lobby-footer-buttons">
+        {isHost ? (
           <button
-            onClick={leaveRoom}
-            className="btn btn-secondary ripple"
+            onClick={startGame}
+            disabled={(players.length < 2 && !(import.meta as any).env.DEV) || !players.every(p => p.id === players[0].id || p.isReady)}
+            className="btn btn-primary ripple"
             style={{ flex: 1, padding: "12px 20px", fontSize: "0.9rem" }}
           >
-            Leave Lobby
+            <Play size={14} fill="currentColor" />
+            {players.every(p => p.id === players[0].id || p.isReady)
+              ? (language === "th" ? "เริ่มเกม" : "Start Game")
+              : (language === "th" ? "รอทุกคนพร้อม..." : "Waiting for ready...")
+            }
           </button>
-
-          {isHost ? (
-            <button
-              onClick={startGame}
-              disabled={(players.length < 2 && !(import.meta as any).env.DEV) || !players.every(p => p.id === players[0].id || p.isReady)}
-              className="btn btn-primary ripple"
-              style={{ flex: 1, padding: "12px 20px", fontSize: "0.9rem" }}
-            >
-              <Play size={14} fill="currentColor" />
-              {players.every(p => p.id === players[0].id || p.isReady)
-                ? (language === "th" ? "เริ่มเกม" : "Start Game")
-                : (language === "th" ? "รอทุกคนพร้อม..." : "Waiting for ready...")
-              }
-            </button>
-          ) : (
-            <button
-              onClick={toggleReady}
-              className={`btn ripple ${players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady ? "btn-ready-true" : "btn-secondary"}`}
-              style={{
-                flex: 1,
-                padding: "12px 20px",
-                fontSize: "0.9rem",
-              }}
-            >
-              {players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady
-                ? "Ready!"
-                : "Ready up"}
-            </button>
-          )}
-        </div>
+        ) : (
+          <button
+            onClick={toggleReady}
+            className={`btn ripple ${players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady ? "btn-ready-true" : "btn-secondary"}`}
+            style={{ flex: 1, padding: "12px 20px", fontSize: "0.9rem" }}
+          >
+            {players.find((p) => p.id === useGameStore.getState().socket?.id)?.isReady ? "Ready!" : "Ready up"}
+          </button>
+        )}
       </div>
 
       {/* Playlist Selector Modal */}
