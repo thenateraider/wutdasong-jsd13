@@ -2,7 +2,7 @@
    🎵 WUTDASONG — Orange × White Premium Design System
    ================================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Playpen+Sans+Thai:wght@100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playpen+Sans+Thai:wght@100..800&family=Outfit:wght@100..900&family=Nunito:wght@200..1000&display=swap');
 
 /* ── Design Tokens ─────────────────────────────────────────────── */
 :root {
@@ -89,7 +89,7 @@ a {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  font-family: 'Playpen Sans Thai', cursive, sans-serif !important;
+  font-family: 'Playpen Sans Thai', cursive, sans-serif;
   line-height: 1.6;
 }
 
