@@ -37,7 +37,7 @@ app.post("/api/singleplayer/start", async (req, res) => {
       settings.numSongs,
       settings.playlistUrl
     );
-    
+
     // Store answers in cache, scrub them from the response
     const clientRounds = rounds.map((round) => {
       singleplayerAnswers.set(round.questionId, round.secretAnswer);
@@ -208,7 +208,7 @@ const startMultiplayerRound = async (roomCode: string) => {
 
   const game = room.game;
   const currentRoundData = game.getCurrentRoundClientData();
-  
+
   if (!currentRoundData) {
     console.log(`[Socket] Could not retrieve round data for room ${roomCode}`);
     return;
@@ -281,7 +281,7 @@ const revealMultiplayerAnswers = (roomCode: string) => {
       });
       console.log(`[Game] Room ${roomCode} - Game finished. Showing results.`);
     }
-    }, 9000); // 4s reveal + 5s rankings display
+  }, 9000); // 4s reveal + 5s rankings display
 };
 
 io.on("connection", (socket: Socket) => {
@@ -305,7 +305,7 @@ io.on("connection", (socket: Socket) => {
       data.password,
       data.maxPlayers
     );
-    
+
     socket.join(room.code);
     broadcastRoomUpdate(room.code);
   });
@@ -331,7 +331,7 @@ io.on("connection", (socket: Socket) => {
 
     socket.join(data.code.toUpperCase());
     broadcastRoomUpdate(data.code);
-    
+
     // Notify room of player arrival
     socket.to(data.code.toUpperCase()).emit("chat_message", {
       sender: "System",
@@ -381,7 +381,7 @@ io.on("connection", (socket: Socket) => {
 
     try {
       io.to(room.code).emit("loading_game", { message: "Generating dynamic playlist from Spotify..." });
-      
+
       const rounds = await musicService.generateGameRounds(
         room.settings.genres,
         room.settings.numSongs,
@@ -389,7 +389,7 @@ io.on("connection", (socket: Socket) => {
       );
 
       const game = new GameEngine(room.settings);
-      
+
       // Load all room players into engine
       for (const p of room.players) {
         game.addPlayer(p.id, p.name, p.avatar);
@@ -397,7 +397,7 @@ io.on("connection", (socket: Socket) => {
 
       await game.initialize(rounds);
       room.game = game;
-      
+
       // Send game starting event with 5s countdown
       io.to(room.code).emit("game_starting", { countdown: 5 });
 
@@ -435,7 +435,7 @@ io.on("connection", (socket: Socket) => {
     if (success) {
       // Notify other players in room (so UI can show checkmarks / lock status)
       io.to(room.code).emit("player_guessed", { playerId: socket.id });
-      
+
       // Trigger instant check
       const activePlayerIds = room.players.map((p) => p.id);
       if (room.game.haveAllPlayersGuessed(activePlayerIds)) {
@@ -474,12 +474,12 @@ const handleDisconnect = (socket: Socket) => {
   const result = roomManager.leaveRoom(socket.id);
   if (result) {
     const { roomCode, playerLeftName, roomDeleted, roomUpdated } = result;
-    
+
     if (roomDeleted) {
       console.log(`[Socket] Player ${playerLeftName} left. Room ${roomCode} destroyed.`);
     } else {
       console.log(`[Socket] Player ${playerLeftName} left Room ${roomCode}.`);
-      
+
       // Notify remaining players in chat
       io.to(roomCode).emit("chat_message", {
         sender: "System",
@@ -493,7 +493,7 @@ const handleDisconnect = (socket: Socket) => {
       if (roomUpdated && roomUpdated.game && roomUpdated.state === "playing") {
         const game = roomUpdated.game;
         const activePlayerIds = roomUpdated.players.map((p) => p.id);
-        
+
         if (game.haveAllPlayersGuessed(activePlayerIds)) {
           if (roomUpdated.activeTimer) {
             clearInterval(roomUpdated.activeTimer);
@@ -538,7 +538,45 @@ const seedPresetPlaylists = async () => {
         name: "ลูกทุ่งยอดนิยม",
         url: "https://open.spotify.com/playlist/37i9dQZF1DXasLXGV6xWIC?si=IeXk4wFeRVKxg2HTfICl9g",
         isDefault: false
+      },
+      {
+        name: "ลูกทุ่งอินดี้ 100 ล้านวิว",
+        url: "https://open.spotify.com/playlist/0T9SEsFpRe4RFGUh2mbTWw?si=LEbC_k9nSsm09GqTwVOooA",
+        isDefault: false
+      },
+      {
+        name: "HITS 2026 สากล",
+        url: "https://open.spotify.com/playlist/5iwkYfnHAGMEFLiHFFGnP4?si=JAqqb6qiR5abnKrZPzNS9Q",
+        isDefault: false
+      },
+      {
+        name: "K-POP ON! (Today's Hit)",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DX9tPFwDMOaN1?si=jL8cF6YJS5qFjWfhr2BMvg",
+        isDefault: false
+      },
+      {
+        name: "เพลงไทยสากล 90",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DX99IunJeNBDi?si=Mb4AbND1R-6fMhUlkv7LTg",
+        isDefault: false
+      },
+      {
+        name: "Pop สากล 90s",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DWVcJK7WY4M52?si=7F_NjDtMRDSv9JKAUfhROQ",
+        isDefault: false
       }
+      ,
+      {
+        name: "This Is Taylor Swift",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DX5KpP2LN299J?si=rnmHKa2fTLqL_nRbKt7a6g",
+        isDefault: false
+      },
+      {
+        name: "Pop สากล 2015-2026",
+        url: "https://open.spotify.com/playlist/1WH6WVBwPBz35ZbWsgCpgr?si=aAbM4YdaROi3O3MjdEC_pg",
+        isDefault: false
+      }
+
+
     ];
 
     console.log("[Seeder] Seeding preset playlists from Spotify...");
@@ -577,7 +615,7 @@ const seedPresetPlaylists = async () => {
 const startServer = async () => {
   // Connect to database first
   await connectDB(process.env.MONGO_URI);
-  
+
   // Seed playlists if collection is empty
   await seedPresetPlaylists();
 
