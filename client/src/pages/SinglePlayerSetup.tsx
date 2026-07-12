@@ -16,6 +16,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
   const clipDuration = 5;
   const difficulty = "Normal";
 
+  const [useCustomPlaylist, setUseCustomPlaylist] = useState<boolean>(false);
   const [customUrl, setCustomUrl] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempSelectedUrl, setTempSelectedUrl] = useState<string>("");
@@ -51,7 +52,10 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
   };
 
   const handleStart = () => {
-    const activeUrl = customUrl.trim() || selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || "");
+    const activeUrl = useCustomPlaylist
+      ? (customUrl.trim() || selectedPlaylistInfo?.url || "")
+      : (selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || ""));
+    
     const settings: GameSettings = {
       numSongs,
       answerDuration,
@@ -70,7 +74,9 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     </div>
   );
 
-  const canStart = !customLoading && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5;
+  const canStart = useCustomPlaylist
+    ? (!customLoading && customUrl.trim() !== "" && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5)
+    : (!customLoading && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5);
 
   return (
     <div className="page-container" style={{ maxWidth: "560px" }}>
@@ -98,165 +104,300 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           paddingRight: "6px"
         }}>
           
-          {/* ── Playlist Selection Card ── */}
+          {/* ── Source Toggle Card ── */}
           <div className="setup-section-card">
-            {sectionHeader("🎵", language === "th" ? "หมวดเพลง / เพลย์ลิสต์" : "Music Category / Playlist")}
-            
-            {selectedPlaylistInfo ? (
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "14px",
-                  padding: "14px 16px",
-                  background: "rgba(255,255,255,0.82)",
-                  backdropFilter: "blur(20px)",
-                  WebkitBackdropFilter: "blur(20px)",
-                  border: "1.5px solid rgba(255, 107, 53, 0.20)",
-                  borderRadius: "var(--r-xl)",
-                  boxShadow: "var(--shadow-sm)",
-                  marginBottom: "12px",
-                  animation: "springPop 0.32s var(--ease-spring) forwards",
-                }}
-              >
-                {/* Cover art */}
+            {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
+            <div className="toggle-row" style={{ marginBottom: 0 }}>
+              <div>
+                <h4 style={{ fontFamily: "Outfit, sans-serif", fontWeight: 800, fontSize: "0.90rem", color: "var(--text-dark)" }}>
+                  {language === "th" ? "ใส่ลิงก์เพลย์ลิสต์เอง" : "Enter playlist link manually"}
+                </h4>
+                <p style={{ fontSize: "0.73rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                  {language === "th" ? "สลับเพื่อระบุลิงก์ Spotify Playlist ส่วนตัวของคุณ" : "Switch to paste your custom Spotify Playlist URL"}
+                </p>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={useCustomPlaylist}
+                  onChange={(e) => {
+                    playClickSFX();
+                    setUseCustomPlaylist(e.target.checked);
+                    if (!e.target.checked) {
+                      setCustomUrl("");
+                      setCustomError(null);
+                      const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
+                      if (defaultPl) {
+                        setSelectedPlaylist(defaultPl.url);
+                      }
+                    }
+                  }}
+                />
+                <span className="toggle-slider" />
+              </label>
+            </div>
+          </div>
+
+          {/* ── Selected Playlist (Seeded Presets Mode) ── */}
+          {!useCustomPlaylist && (
+            <div className="setup-section-card">
+              {sectionHeader("🎧", language === "th" ? "หมวดเพลงที่เลือกอยู่" : "Selected Music Category")}
+              
+              {selectedPlaylistInfo ? (
                 <div
                   style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: "var(--r-md)",
-                    overflow: "hidden",
-                    flexShrink: 0,
-                    border: "2px solid rgba(255,255,255,0.90)",
-                    boxShadow: "var(--shadow-md)",
-                    background: "var(--orange-pastel)",
                     display: "flex",
                     alignItems: "center",
-                    justifyContent: "center",
+                    gap: "14px",
+                    padding: "14px 16px",
+                    background: "rgba(255,255,255,0.82)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border: "1.5px solid rgba(255, 107, 53, 0.20)",
+                    borderRadius: "var(--r-xl)",
+                    boxShadow: "var(--shadow-sm)",
+                    marginBottom: "12px",
+                    animation: "springPop 0.32s var(--ease-spring) forwards",
                   }}
                 >
-                  {selectedPlaylistInfo.imageUrl ? (
-                    <img
-                      src={selectedPlaylistInfo.imageUrl}
-                      alt="Playlist cover"
-                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    />
-                  ) : (
-                    <Music2 size={26} style={{ color: "var(--orange-core)" }} />
-                  )}
-                </div>
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Cover art */}
                   <div
                     style={{
-                      fontFamily: "Outfit, sans-serif",
-                      fontSize: "0.95rem",
-                      fontWeight: 900,
-                      color: "var(--text-dark)",
-                      whiteSpace: "nowrap",
+                      width: 64,
+                      height: 64,
+                      borderRadius: "var(--r-md)",
                       overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      lineHeight: 1.2,
-                      marginBottom: "4px",
-                    }}
-                  >
-                    {selectedPlaylistInfo.name}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "0.78rem",
-                      fontWeight: 700,
-                      color: "var(--text-muted)",
+                      flexShrink: 0,
+                      border: "2px solid rgba(255,255,255,0.90)",
+                      boxShadow: "var(--shadow-md)",
+                      background: "var(--orange-pastel)",
                       display: "flex",
                       alignItems: "center",
-                      gap: "5px",
+                      justifyContent: "center",
                     }}
                   >
-                    <span>🎵</span>
-                    <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                    {selectedPlaylistInfo.imageUrl ? (
+                      <img
+                        src={selectedPlaylistInfo.imageUrl}
+                        alt="Playlist cover"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <Music2 size={26} style={{ color: "var(--orange-core)" }} />
+                    )}
                   </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontFamily: "Outfit, sans-serif",
+                        fontSize: "0.95rem",
+                        fontWeight: 900,
+                        color: "var(--text-dark)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        lineHeight: 1.2,
+                        marginBottom: "4px",
+                      }}
+                    >
+                      {selectedPlaylistInfo.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        color: "var(--text-muted)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <span>🎵</span>
+                      <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                    </div>
+                  </div>
+
+                  <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
                 </div>
-
-                <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
-              </div>
-            ) : (
-              <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                {language === "th" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "No playlist selected"}
-              </div>
-            )}
-
-            <button
-              onClick={() => {
-                playClickSFX();
-                setTempSelectedUrl(selectedPlaylistInfo?.url || (presetPlaylists[0]?.url || ""));
-                setIsModalOpen(true);
-              }}
-              className="btn btn-primary ripple"
-              style={{
-                width: "100%",
-                padding: "10px 16px",
-                borderRadius: "12px",
-                fontSize: "0.88rem",
-                fontWeight: 800,
-                cursor: "pointer",
-                background: "var(--grad-primary)",
-                border: "none",
-                color: "#fff",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px"
-              }}
-            >
-              🎵 {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
-            </button>
-          </div>
-
-          {/* ── Custom Playlist URL Section ── */}
-          <div className="setup-section-card">
-            {sectionHeader("🔗", language === "th" ? "หรือ ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Or use custom playlist URL")}
-            <div style={{ position: "relative", width: "100%" }}>
-              <input
-                type="text"
-                placeholder="https://open.spotify.com/playlist/..."
-                value={customUrl}
-                onChange={(e) => handleCustomUrlChange(e.target.value)}
-                className="input-text"
-                style={{
-                  width: "100%",
-                  fontSize: "0.85rem",
-                  paddingRight: customLoading ? "38px" : "14px"
-                }}
-              />
-              {customLoading && (
-                <div
-                  style={{
-                    position: "absolute",
-                    right: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    display: "flex",
-                    alignItems: "center"
-                  }}
-                >
-                  <Loader2 size={16} style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
+              ) : (
+                <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                  {language === "th" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "No playlist selected"}
                 </div>
               )}
+
+              <button
+                onClick={() => {
+                  playClickSFX();
+                  setTempSelectedUrl(selectedPlaylistInfo?.url || (presetPlaylists[0]?.url || ""));
+                  setIsModalOpen(true);
+                }}
+                className="btn btn-primary ripple"
+                style={{
+                  width: "100%",
+                  padding: "10px 16px",
+                  borderRadius: "12px",
+                  fontSize: "0.88rem",
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  background: "var(--grad-primary)",
+                  border: "none",
+                  color: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
+                }}
+              >
+                🎵 {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+              </button>
             </div>
-            {customError && (
-              <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
-                <AlertCircle size={12} />
-                {customError}
+          )}
+
+          {/* ── Custom URL Input Mode ── */}
+          {useCustomPlaylist && (
+            <div className="setup-section-card">
+              {sectionHeader("🔗", language === "th" ? "ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Enter custom playlist URL")}
+              <div style={{ position: "relative", width: "100%" }}>
+                <input
+                  type="text"
+                  placeholder="https://open.spotify.com/playlist/..."
+                  value={customUrl}
+                  onChange={(e) => handleCustomUrlChange(e.target.value)}
+                  className="input-text"
+                  style={{
+                    width: "100%",
+                    fontSize: "0.85rem",
+                    paddingRight: customLoading ? "38px" : "14px"
+                  }}
+                />
+                {customLoading && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      display: "flex",
+                      alignItems: "center"
+                    }}
+                  >
+                    <Loader2 size={16} className="animate-spin" style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
+                  </div>
+                )}
               </div>
-            )}
-            <p style={{ fontSize: "0.70rem", color: "var(--text-muted)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
-              <Info size={11} />
-              {language === "th"
-                ? "ตั้ง playlist เป็น Public ก่อนนะ! รองรับเฉพาะ Spotify Playlist เท่านั้น"
-                : "Make sure your playlist is set to Public! Only Spotify Playlists are supported."}
-            </p>
-          </div>
+              {customError && (
+                <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                  <AlertCircle size={12} />
+                  {customError}
+                </div>
+              )}
+
+              {/* Custom Preview Card */}
+              {selectedPlaylistInfo && !customError && !customLoading && customUrl.trim() && (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "14px",
+                    padding: "14px 16px",
+                    background: "rgba(255,255,255,0.82)",
+                    backdropFilter: "blur(20px)",
+                    WebkitBackdropFilter: "blur(20px)",
+                    border: "1.5px solid rgba(34,197,94,0.35)",
+                    borderRadius: "var(--r-xl)",
+                    boxShadow: "0 4px 20px rgba(34,197,94,0.12)",
+                    marginTop: "12px",
+                    animation: "springPop 0.32s var(--ease-spring) forwards",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 64,
+                      height: 64,
+                      borderRadius: "var(--r-md)",
+                      overflow: "hidden",
+                      flexShrink: 0,
+                      border: "2.5px solid rgba(255,255,255,0.90)",
+                      boxShadow: "var(--shadow-md)",
+                      background: "var(--orange-pastel)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {selectedPlaylistInfo.imageUrl ? (
+                      <img
+                        src={selectedPlaylistInfo.imageUrl}
+                        alt="Playlist cover"
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
+                    ) : (
+                      <Music2 size={26} style={{ color: "var(--orange-core)" }} />
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "4px",
+                        background: "linear-gradient(135deg,#1DB954,#17a74a)",
+                        color: "#fff",
+                        borderRadius: "var(--r-full)",
+                        padding: "2px 8px",
+                        fontSize: "0.60rem",
+                        fontWeight: 800,
+                        letterSpacing: "0.05em",
+                        marginBottom: "5px",
+                      }}
+                    >
+                      ♪ Spotify
+                    </div>
+                    <div
+                      style={{
+                        fontFamily: "Outfit, sans-serif",
+                        fontSize: "0.95rem",
+                        fontWeight: 900,
+                        color: "var(--text-dark)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        lineHeight: 1.2,
+                        marginBottom: "4px",
+                      }}
+                    >
+                      {selectedPlaylistInfo.name}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        color: "var(--text-muted)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "5px",
+                      }}
+                    >
+                      <span>🎵</span>
+                      <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                    </div>
+                  </div>
+
+                  <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
+                </div>
+              )}
+
+              <p style={{ fontSize: "0.70rem", color: "var(--text-muted)", marginTop: "8px", display: "flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
+                <Info size={11} />
+                {language === "th"
+                  ? "ตั้ง playlist เป็น Public ก่อนนะ! รองรับเฉพาะ Spotify Playlist เท่านั้น"
+                  : "Make sure your playlist is set to Public! Only Spotify Playlists are supported."}
+              </p>
+            </div>
+          )}
 
           {/* ── Settings grid ── */}
           <div className="setup-section-card">

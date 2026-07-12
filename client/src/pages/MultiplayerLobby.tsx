@@ -41,6 +41,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [clipDuration, setClipDuration] = useState(5);
   const [difficulty] = useState<"Easy" | "Normal" | "Hard">("Normal");
 
+  const [useCustomPlaylist, setUseCustomPlaylist] = useState<boolean>(false);
   const [customUrl, setCustomUrl] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempSelectedUrl, setTempSelectedUrl] = useState<string>("");
@@ -100,7 +101,10 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   };
 
   const handleCreate = () => {
-    const activeUrl = customUrl.trim() || selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || "");
+    const activeUrl = useCustomPlaylist
+      ? (customUrl.trim() || selectedPlaylistInfo?.url || "")
+      : (selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || ""));
+
     const gameSettings: GameSettings = {
       numSongs,
       answerDuration,
@@ -116,12 +120,14 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const handleJoin = async (passwordOverride?: string) => {
     if (!joinCodeInput.trim()) return;
     setJoinError(null);
-    const success = await joinRoom(
+    const res = await joinRoom(
       joinCodeInput.trim().toUpperCase(),
       passwordOverride || undefined
     );
-    if (!success) {
-      setShowPasswordModal(true);
+    if (!res.success) {
+      if (res.error === "Password required." || res.error === "Incorrect password.") {
+        setShowPasswordModal(true);
+      }
     }
   };
 
@@ -130,12 +136,12 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       setJoinError(language === "th" ? "กรุณาใส่รหัสผ่าน" : "Please enter a password");
       return;
     }
-    const success = await joinRoom(
+    const res = await joinRoom(
       joinCodeInput.trim().toUpperCase(),
       joinPasswordInput
     );
-    if (!success) {
-      setJoinError(language === "th" ? "รหัสผ่านไม่ถูกต้อง" : "Incorrect password");
+    if (!res.success) {
+      setJoinError(res.error || (language === "th" ? "รหัสผ่านไม่ถูกต้อง" : "Incorrect password"));
     } else {
       setShowPasswordModal(false);
       setJoinPasswordInput("");
@@ -157,7 +163,9 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     }
   };
 
-  const canCreate = !customLoading && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5;
+  const canCreate = useCustomPlaylist
+    ? (!customLoading && customUrl.trim() !== "" && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5)
+    : (!customLoading && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5);
 
   // If NOT in a room, show the Join/Create lobby panels
   if (!roomCode) {
@@ -268,149 +276,282 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                   )}
                 </div>
 
-                {/* Playlist Selection Card */}
+                {/* Source Toggle Card */}
                 <div className="setup-section-card">
-                  {sectionHeader("🎵", language === "th" ? "หมวดเพลง / เพลย์ลิสต์" : "Music Category / Playlist")}
-                  
-                  {selectedPlaylistInfo ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "14px",
-                        padding: "14px 16px",
-                        background: "rgba(255,255,255,0.82)",
-                        backdropFilter: "blur(20px)",
-                        WebkitBackdropFilter: "blur(20px)",
-                        border: "1.5px solid rgba(255, 107, 53, 0.20)",
-                        borderRadius: "var(--r-xl)",
-                        boxShadow: "var(--shadow-sm)",
-                        marginBottom: "12px",
-                        animation: "springPop 0.32s var(--ease-spring) forwards",
-                      }}
-                    >
-                      {/* Cover art */}
-                      <div
-                        style={{
-                          width: 64,
-                          height: 64,
-                          borderRadius: "var(--r-md)",
-                          overflow: "hidden",
-                          flexShrink: 0,
-                          border: "2px solid rgba(255,255,255,0.90)",
-                          boxShadow: "var(--shadow-md)",
-                          background: "var(--orange-pastel)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
+                  {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
+                  <div className="toggle-row" style={{ marginBottom: 0 }}>
+                    <div>
+                      <h4 style={{ fontFamily: "Outfit, sans-serif", fontWeight: 800, fontSize: "0.90rem", color: "var(--text-dark)" }}>
+                        {language === "th" ? "ใส่ลิงก์เพลย์ลิสต์เอง" : "Enter playlist link manually"}
+                      </h4>
+                      <p style={{ fontSize: "0.73rem", color: "var(--text-muted)", marginTop: "2px" }}>
+                        {language === "th" ? "สลับเพื่อระบุลิงก์ Spotify Playlist ส่วนตัวของคุณ" : "Switch to paste your custom Spotify Playlist URL"}
+                      </p>
+                    </div>
+                    <label className="toggle-switch">
+                      <input
+                        type="checkbox"
+                        checked={useCustomPlaylist}
+                        onChange={(e) => {
+                          setUseCustomPlaylist(e.target.checked);
+                          if (!e.target.checked) {
+                            setCustomUrl("");
+                            setCustomError(null);
+                            const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
+                            if (defaultPl) {
+                              setSelectedPlaylist(defaultPl.url);
+                            }
+                          }
                         }}
-                      >
-                        {selectedPlaylistInfo.imageUrl ? (
-                          <img
-                            src={selectedPlaylistInfo.imageUrl}
-                            alt="Playlist cover"
-                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          />
-                        ) : (
-                          <Music2 size={26} style={{ color: "var(--orange-core)" }} />
-                        )}
-                      </div>
-
-                      {/* Info */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontFamily: "Outfit, sans-serif",
-                            fontSize: "0.95rem",
-                            fontWeight: 900,
-                            color: "var(--text-dark)",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            lineHeight: 1.2,
-                            marginBottom: "4px",
-                          }}
-                        >
-                          {selectedPlaylistInfo.name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: "0.78rem",
-                            fontWeight: 700,
-                            color: "var(--text-muted)",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "5px",
-                          }}
-                        >
-                          <span>🎵</span>
-                          <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
-                        </div>
-                      </div>
-
-                      <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
-                    </div>
-                  ) : (
-                    <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
-                      {language === "th" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "No playlist selected"}
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setTempSelectedUrl(selectedPlaylistInfo?.url || (presetPlaylists[0]?.url || ""));
-                      setIsModalOpen(true);
-                    }}
-                    className="btn btn-primary ripple"
-                    style={{
-                      width: "100%",
-                      padding: "10px 16px",
-                      borderRadius: "12px",
-                      fontSize: "0.88rem",
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      background: "var(--grad-primary)",
-                      border: "none",
-                      color: "#fff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px"
-                    }}
-                  >
-                    🎵 {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
-                  </button>
+                      />
+                      <span className="toggle-slider" />
+                    </label>
+                  </div>
                 </div>
 
-                {/* Custom URL Section */}
-                <div className="setup-section-card">
-                  {sectionHeader("🔗", language === "th" ? "หรือ ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Or use custom playlist URL")}
-                  <div style={{ position: "relative", width: "100%" }}>
-                    <input
-                      type="text"
-                      placeholder="https://open.spotify.com/playlist/..."
-                      value={customUrl}
-                      onChange={(e) => handleCustomUrlChange(e.target.value)}
-                      className="input-text"
+                {/* Preset Playlist Selection Card */}
+                {!useCustomPlaylist && (
+                  <div className="setup-section-card">
+                    {sectionHeader("🎧", language === "th" ? "หมวดเพลงที่เลือกอยู่" : "Selected Music Category")}
+                    
+                    {selectedPlaylistInfo ? (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "14px",
+                          padding: "14px 16px",
+                          background: "rgba(255,255,255,0.82)",
+                          backdropFilter: "blur(20px)",
+                          WebkitBackdropFilter: "blur(20px)",
+                          border: "1.5px solid rgba(255, 107, 53, 0.20)",
+                          borderRadius: "var(--r-xl)",
+                          boxShadow: "var(--shadow-sm)",
+                          marginBottom: "12px",
+                          animation: "springPop 0.32s var(--ease-spring) forwards",
+                        }}
+                      >
+                        {/* Cover art */}
+                        <div
+                          style={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: "var(--r-md)",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            border: "2px solid rgba(255,255,255,0.90)",
+                            boxShadow: "var(--shadow-md)",
+                            background: "var(--orange-pastel)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {selectedPlaylistInfo.imageUrl ? (
+                            <img
+                              src={selectedPlaylistInfo.imageUrl}
+                              alt="Playlist cover"
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            <Music2 size={26} style={{ color: "var(--orange-core)" }} />
+                          )}
+                        </div>
+
+                        {/* Info */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontFamily: "Outfit, sans-serif",
+                              fontSize: "0.95rem",
+                              fontWeight: 900,
+                              color: "var(--text-dark)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              lineHeight: 1.2,
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {selectedPlaylistInfo.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              color: "var(--text-muted)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px",
+                            }}
+                          >
+                            <span>🎵</span>
+                            <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                          </div>
+                        </div>
+
+                        <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                        {language === "th" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "No playlist selected"}
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setTempSelectedUrl(selectedPlaylistInfo?.url || (presetPlaylists[0]?.url || ""));
+                        setIsModalOpen(true);
+                      }}
+                      className="btn btn-primary ripple"
                       style={{
                         width: "100%",
-                        fontSize: "0.85rem",
-                        paddingRight: customLoading ? "38px" : "14px"
+                        padding: "10px 16px",
+                        borderRadius: "12px",
+                        fontSize: "0.88rem",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        background: "var(--grad-primary)",
+                        border: "none",
+                        color: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "6px"
                       }}
-                    />
-                    {customLoading && (
-                      <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center" }}>
-                        <Loader2 size={16} style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
+                    >
+                      🎵 {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Custom URL Section */}
+                {useCustomPlaylist && (
+                  <div className="setup-section-card">
+                    {sectionHeader("🔗", language === "th" ? "ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Enter custom playlist URL")}
+                    <div style={{ position: "relative", width: "100%" }}>
+                      <input
+                        type="text"
+                        placeholder="https://open.spotify.com/playlist/..."
+                        value={customUrl}
+                        onChange={(e) => handleCustomUrlChange(e.target.value)}
+                        className="input-text"
+                        style={{
+                          width: "100%",
+                          fontSize: "0.85rem",
+                          paddingRight: customLoading ? "38px" : "14px"
+                        }}
+                      />
+                      {customLoading && (
+                        <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center" }}>
+                          <Loader2 size={16} style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
+                        </div>
+                      )}
+                    </div>
+                    {customError && (
+                      <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                        <AlertCircle size={12} />
+                        {customError}
+                      </div>
+                    )}
+
+                    {/* Custom Preview Card */}
+                    {selectedPlaylistInfo && !customError && !customLoading && customUrl.trim() && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "14px",
+                          padding: "14px 16px",
+                          background: "rgba(255,255,255,0.82)",
+                          backdropFilter: "blur(20px)",
+                          WebkitBackdropFilter: "blur(20px)",
+                          border: "1.5px solid rgba(34,197,94,0.35)",
+                          borderRadius: "var(--r-xl)",
+                          boxShadow: "0 4px 20px rgba(34,197,94,0.12)",
+                          marginTop: "12px",
+                          animation: "springPop 0.32s var(--ease-spring) forwards",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 64,
+                            height: 64,
+                            borderRadius: "var(--r-md)",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            border: "2.5px solid rgba(255,255,255,0.90)",
+                            boxShadow: "var(--shadow-md)",
+                            background: "var(--orange-pastel)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {selectedPlaylistInfo.imageUrl ? (
+                            <img
+                              src={selectedPlaylistInfo.imageUrl}
+                              alt="Playlist cover"
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            <Music2 size={26} style={{ color: "var(--orange-core)" }} />
+                          )}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              background: "linear-gradient(135deg,#1DB954,#17a74a)",
+                              color: "#fff",
+                              borderRadius: "var(--r-full)",
+                              padding: "2px 8px",
+                              fontSize: "0.60rem",
+                              fontWeight: 800,
+                              letterSpacing: "0.05em",
+                              marginBottom: "5px",
+                            }}
+                          >
+                            ♪ Spotify
+                          </div>
+                          <div
+                            style={{
+                              fontFamily: "Outfit, sans-serif",
+                              fontSize: "0.95rem",
+                              fontWeight: 900,
+                              color: "var(--text-dark)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              lineHeight: 1.2,
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {selectedPlaylistInfo.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.78rem",
+                              fontWeight: 700,
+                              color: "var(--text-muted)",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "5px",
+                            }}
+                          >
+                            <span>🎵</span>
+                            <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                          </div>
+                        </div>
+
+                        <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
                       </div>
                     )}
                   </div>
-                  {customError && (
-                    <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
-                      <AlertCircle size={12} />
-                      {customError}
-                    </div>
-                  )}
-                </div>
+                )}
 
                 {/* Game Settings Card */}
                 <div className="setup-section-card">

@@ -103,7 +103,7 @@ interface GameState {
   setPlayerInfo: (name: string, avatar: string) => void;
   initializeSocket: () => Socket;
   createRoom: (roomName: string, password?: string, maxPlayers?: number) => void;
-  joinRoom: (code: string, password?: string) => Promise<boolean>;
+  joinRoom: (code: string, password?: string) => Promise<{ success: boolean; error?: string }>;
   leaveRoom: () => void;
   toggleReady: () => void;
   updateSettings: (settings: GameSettings) => void;
@@ -338,7 +338,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
   },
 
-  joinRoom: async (code, password): Promise<boolean> => {
+  joinRoom: (code, password) => {
     const socket = get().initializeSocket();
     const { playerName, playerAvatar } = get();
 
@@ -354,13 +354,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         (res: { success: boolean; error?: string }) => {
           if (res.success) {
             set({ chatMessages: [] });
-            resolve(true);
+            resolve({ success: true });
           } else {
             // If the error is not password-related, show alert
             if (res.error !== "Incorrect password." && res.error !== "Password required.") {
               alert(res.error || "Failed to join room.");
             }
-            resolve(false);
+            resolve({ success: false, error: res.error });
           }
         }
       );

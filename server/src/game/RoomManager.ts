@@ -113,6 +113,8 @@ class RoomManager {
       if (room.password !== password) {
         return { error: "Incorrect password." };
       }
+    if (room.players.some((p) => p.name.trim().toLowerCase() === playerName.trim().toLowerCase())) {
+      return { error: "ชื่อผู้เล่นนี้ซ้ำกับคนในห้อง / Player name is already taken in this lobby." };
     }
 
     // Add player
