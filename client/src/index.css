@@ -2196,11 +2196,22 @@ input:checked+.toggle-slider::before {
     border-radius: 14px;
     gap: 4px !important;
   }
+  .pc-scoreboard-view {
+    display: none !important;
+  }
+  .mobile-scoreboard-view {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    width: 100%;
+  }
 }
 
 @media (min-width: 650px) {
   .page-container {
-    max-width: 900px !important;
+    max-width: 1000px !important; /* Made wider for PC side-by-side! */
     height: 100vh;
     height: 100dvh;
     justify-content: center;
@@ -2215,13 +2226,14 @@ input:checked+.toggle-slider::before {
   }
 
   .game-layout-wrapper.has-sidebar .game-left-col {
-    flex: 1.25;
+    flex: 1.1;
   }
 
   .game-layout-wrapper.has-sidebar .game-right-col {
-    flex: 0.75;
+    flex: 0.9;
     position: sticky;
     top: 20px;
+    min-width: 330px; /* Give the scoreboard card plenty of room! */
   }
 
   .game-layout-wrapper:not(.has-sidebar) .game-left-col {
@@ -2231,5 +2243,15 @@ input:checked+.toggle-slider::before {
 
   .game-scoreboard-card {
     max-height: 480px;
+  }
+
+  .pc-scoreboard-view {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+  }
+  .mobile-scoreboard-view {
+    display: none !important;
   }
 }

@@ -462,28 +462,26 @@ export function GameScreen({
                   color: "var(--text-dark)",
                   display: "flex",
                   alignItems: "center",
-                  gap: "6px",
+                  justifyContent: "space-between",
                   borderBottom: "1.5px solid rgba(0,0,0,0.06)",
                   paddingBottom: "6px",
+                  marginBottom: "8px",
                 }}
               >
-                <span>📊</span>
-                <span>{language === "th" ? "กระดานคะแนน" : "Scoreboard"}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                  <span>📊</span>
+                  <span>
+                    {language === "th" 
+                      ? `Top 3 (ทั้งหมด ${players.length} คน)` 
+                      : `Top 3 (Total ${players.length})`}
+                  </span>
+                </div>
               </div>
 
-              {/* Scrollable List container (compact bar graph) */}
-              <div
-                style={{
-                  overflowY: "auto",
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "6px",
-                  paddingRight: "2px",
-                }}
-              >
+              {/* PC Scoreboard View (Vertical list with progress bars) */}
+              <div className="pc-scoreboard-view">
                 {(() => {
-                  const sorted = [...players].sort((a, b) => b.score - a.score);
+                  const sorted = [...players].sort((a, b) => b.score - a.score).slice(0, 3);
                   const maxScore = Math.max(...players.map((p) => p.score || 0), 1);
 
                   return sorted.map((p, idx) => {
@@ -496,20 +494,20 @@ export function GameScreen({
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "6px",
+                          gap: "10px",
                           width: "100%",
                           background: isMe ? "rgba(255, 107, 53, 0.08)" : "transparent",
-                          padding: isMe ? "4px 6px" : "2px 6px",
-                          borderRadius: "8px",
+                          padding: isMe ? "6px 10px" : "4px 10px",
+                          borderRadius: "10px",
                         }}
                       >
                         {/* Rank Badge */}
                         <span
                           style={{
-                            fontSize: "0.72rem",
+                            fontSize: "0.82rem",
                             fontWeight: 900,
                             color: idx === 0 ? "#F59E0B" : idx === 1 ? "#94A3B8" : idx === 2 ? "#B45309" : "var(--text-muted)",
-                            width: "22px",
+                            width: "28px",
                             textAlign: "center",
                             flexShrink: 0,
                           }}
@@ -518,15 +516,15 @@ export function GameScreen({
                         </span>
 
                         {/* Emoji Avatar */}
-                        <span style={{ fontSize: "1.05rem", flexShrink: 0 }}>{p.avatar}</span>
+                        <span style={{ fontSize: "1.2rem", flexShrink: 0 }}>{p.avatar}</span>
                         
                         {/* Player Name */}
                         <span
                           style={{
                             fontWeight: 850,
-                            fontSize: "0.8rem",
+                            fontSize: "0.9rem",
                             color: "var(--text-dark)",
-                            width: "65px",
+                            width: "100px",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -540,11 +538,12 @@ export function GameScreen({
                         <div
                           style={{
                             flex: 1,
-                            height: "8px",
+                            height: "10px",
                             background: "rgba(255, 107, 53, 0.08)",
-                            borderRadius: "4px",
+                            borderRadius: "5px",
                             overflow: "hidden",
                             position: "relative",
+                            minWidth: "60px",
                           }}
                         >
                           <div
@@ -554,32 +553,74 @@ export function GameScreen({
                               background: isMe 
                                 ? "linear-gradient(90deg, #FF6B35 0%, #FF9F1C 100%)"
                                 : "linear-gradient(90deg, #FFB347 0%, #FFD580 100%)",
-                              borderRadius: "4px",
+                              borderRadius: "5px",
                               transition: "width 0.4s ease-out",
                             }}
                           />
                         </div>
 
-                        {/* Player score and streak combo */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
-                          {status === "playing" && p.streak !== undefined && p.streak >= 2 ? (
-                            <span style={{ fontSize: "0.7rem", fontWeight: 900, color: "#FF9F1C" }} title={`${p.streak} combo`}>
-                              🔥
-                            </span>
-                          ) : null}
-                          <span
-                            style={{
-                              fontFamily: "Outfit, sans-serif",
-                              fontWeight: 950,
-                              fontSize: "0.88rem",
-                              color: "var(--orange-core)",
-                              minWidth: "30px",
-                              textAlign: "right",
-                            }}
-                          >
-                            {p.score}
-                          </span>
-                        </div>
+                        {/* Player score */}
+                        <span
+                          style={{
+                            fontFamily: "Outfit, sans-serif",
+                            fontWeight: 950,
+                            fontSize: "0.95rem",
+                            color: "var(--orange-core)",
+                            minWidth: "60px",
+                            textAlign: "right",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {p.score} pts
+                        </span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+
+              {/* Mobile Scoreboard View (Horizontal badges - NO progress bars) */}
+              <div className="mobile-scoreboard-view">
+                {(() => {
+                  const sorted = [...players].sort((a, b) => b.score - a.score).slice(0, 3);
+
+                  return sorted.map((p, idx) => {
+                    const isMe = p.id === useGameStore.getState().socket?.id;
+                    const rankColor = idx === 0 ? "#F59E0B" : idx === 1 ? "#94A3B8" : idx === 2 ? "#B45309" : "var(--text-muted)";
+
+                    return (
+                      <div
+                        key={p.id}
+                        style={{
+                          fontSize: "0.75rem",
+                          padding: "4px 8px",
+                          borderRadius: "10px",
+                          border: isMe ? "1.5px solid rgba(255,107,53,0.30)" : "1.5px solid rgba(0,0,0,0.06)",
+                          backgroundColor: isMe ? "rgba(255,107,53,0.10)" : "rgba(255,255,255,0.70)",
+                          fontWeight: 800,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <span style={{ color: rankColor, fontWeight: 900 }}>
+                          {idx === 0 ? "1st" : idx === 1 ? "2nd" : idx === 2 ? "3rd" : `#${idx + 1}`}
+                        </span>
+                        <span>{p.avatar}</span>
+                        <span
+                          style={{
+                            color: "var(--text-dark)",
+                            maxWidth: "75px",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {p.name}
+                        </span>
+                        <span style={{ color: "var(--orange-core)", fontWeight: 900 }}>
+                          {p.score}
+                        </span>
                       </div>
                     );
                   });

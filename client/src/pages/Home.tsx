@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useGameStore } from "../store/gameStore";
 import { X, Dices } from "lucide-react";
 import { translations } from "../utils/translations";
@@ -74,6 +74,40 @@ export function Home({
   // State for Edit Profile Modal
   const [editError, setEditError] = useState<string | null>(null);
   const [editValidating, setEditValidating] = useState(false);
+
+  // Lottie Container Ref
+  const lottieContainerRef = useRef<HTMLDivElement>(null);
+
+  // Load Lottie animation script dynamically
+  useEffect(() => {
+    let anim: any = null;
+    const script = document.createElement("script");
+    script.src = "https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js";
+    script.async = true;
+    script.onload = () => {
+      if (lottieContainerRef.current && (window as any).lottie) {
+        anim = (window as any).lottie.loadAnimation({
+          container: lottieContainerRef.current,
+          renderer: "svg",
+          loop: true,
+          autoplay: true,
+          path: "/assets/catwelcome.json",
+        });
+      }
+    };
+    document.body.appendChild(script);
+
+    return () => {
+      if (anim) {
+        anim.destroy();
+      }
+      try {
+        document.body.removeChild(script);
+      } catch (e) {
+        // ignore if already removed
+      }
+    };
+  }, []);
 
   // Validate Force Name
   useEffect(() => {
@@ -169,8 +203,17 @@ export function Home({
       <div className="home-content" style={{ gap: "0", width: "100%", maxWidth: "440px" }}>
 
         {/* ── Logo Hero ── */}
-        <div className="logo-container" style={{ marginBottom: "18px" }}>
-          <div className="logo-badge">🎵</div>
+        <div className="logo-container" style={{ marginBottom: "18px", alignItems: "center" }}>
+          <div 
+            ref={lottieContainerRef} 
+            style={{ 
+              width: "160px", 
+              height: "160px", 
+              maxWidth: "40vw", 
+              maxHeight: "40vw",
+              marginBottom: "4px" 
+            }} 
+          />
           <h1 className="gradient-title" style={{ fontSize: "2.4rem" }}>
             Wutdasong?
           </h1>
