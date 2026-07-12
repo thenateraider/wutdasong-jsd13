@@ -642,15 +642,15 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
               </button>
             </div>
 
-            {/* Scrollable list */}
+            {/* Carousel Gallery */}
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                maxHeight: "320px",
-                overflowY: "auto",
-                paddingRight: "6px"
+                gap: "12px",
+                overflowX: "auto",
+                scrollSnapType: "x mandatory",
+                padding: "4px 2px 8px",
+                maxHeight: "none",
               }}
             >
               {presetPlaylists.map((pl) => {
@@ -663,25 +663,29 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                       setTempSelectedUrl(pl.url);
                     }}
                     style={{
+                      flex: "0 0 130px",
+                      scrollSnapAlign: "start",
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
-                      gap: "12px",
-                      padding: "10px 14px",
+                      gap: "8px",
+                      padding: "8px",
                       borderRadius: "14px",
                       border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
                       background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
                       cursor: "pointer",
                       transition: "var(--t-fast)",
+                      transform: isSelected ? "scale(1.03)" : "scale(1)",
+                      boxShadow: isSelected ? "0 4px 16px rgba(255,107,53,0.25)" : "none",
                     }}
                   >
                     {/* Thumbnail */}
                     <div
                       style={{
-                        width: 48,
-                        height: 48,
+                        width: "100%",
+                        aspectRatio: "1/1",
                         borderRadius: "10px",
                         overflow: "hidden",
-                        flexShrink: 0,
                         border: "1.5px solid rgba(255,255,255,0.90)",
                         background: "var(--orange-pastel)",
                         display: "flex",
@@ -692,36 +696,18 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                       {pl.imageUrl ? (
                         <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
-                        <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                        <Music2 size={24} style={{ color: "var(--orange-core)" }} />
                       )}
                     </div>
 
                     {/* Details */}
-                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ width: "100%", textAlign: "center", minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {pl.name}
                       </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                      <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>
                         {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
                       </div>
-                    </div>
-
-                    {/* Radio Button */}
-                    <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        border: "2px solid var(--orange-core)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0
-                      }}
-                    >
-                      {isSelected && (
-                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--orange-core)" }} />
-                      )}
                     </div>
                   </div>
                 );

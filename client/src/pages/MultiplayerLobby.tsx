@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameStore, GameSettings } from "../store/gameStore";
-import { ArrowLeft, Play, Copy, Send, Check, User, Lock, X, Music2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Copy, Check, User, Lock, X, Music2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { translations } from "../utils/translations";
 
 interface MultiplayerLobbyProps {
@@ -14,14 +14,12 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     isHost,
     players,
     settings,
-    chatMessages,
     playerName,
     createRoom,
     joinRoom,
     leaveRoom,
     toggleReady,
     updateSettings,
-    sendMessage,
     startGame,
     language,
     presetPlaylists,
@@ -53,15 +51,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [joinPasswordInput, setJoinPasswordInput] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
 
-  // Chat forms
-  const [chatInput, setChatInput] = useState("");
-  const chatEndRef = useRef<HTMLDivElement | null>(null);
   const [copied, setCopied] = useState(false);
-
-  // Scroll to bottom of chat
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
 
   useEffect(() => {
     // Reset custom playlist state on mount or activeTab switch
@@ -168,14 +158,6 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       <span className="section-label">{text}</span>
     </div>
   );
-
-  const handleSendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (chatInput.trim()) {
-      sendMessage(chatInput.trim());
-      setChatInput("");
-    }
-  };
 
   const canCreate = useCustomPlaylist
     ? (!customLoading && customUrl.trim() !== "" && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5)
@@ -828,15 +810,15 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                 </button>
               </div>
 
-              {/* Scrollable list */}
+              {/* Carousel Gallery */}
               <div
                 style={{
                   display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                  maxHeight: "320px",
-                  overflowY: "auto",
-                  paddingRight: "6px"
+                  gap: "12px",
+                  overflowX: "auto",
+                  scrollSnapType: "x mandatory",
+                  padding: "4px 2px 8px",
+                  maxHeight: "none",
                 }}
               >
                 {presetPlaylists.map((pl) => {
@@ -848,25 +830,29 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                         setTempSelectedUrl(pl.url);
                       }}
                       style={{
+                        flex: "0 0 130px",
+                        scrollSnapAlign: "start",
                         display: "flex",
+                        flexDirection: "column",
                         alignItems: "center",
-                        gap: "12px",
-                        padding: "10px 14px",
+                        gap: "8px",
+                        padding: "8px",
                         borderRadius: "14px",
                         border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
                         background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
                         cursor: "pointer",
                         transition: "var(--t-fast)",
+                        transform: isSelected ? "scale(1.03)" : "scale(1)",
+                        boxShadow: isSelected ? "0 4px 16px rgba(255,107,53,0.25)" : "none",
                       }}
                     >
                       {/* Thumbnail */}
                       <div
                         style={{
-                          width: 48,
-                          height: 48,
+                          width: "100%",
+                          aspectRatio: "1/1",
                           borderRadius: "10px",
                           overflow: "hidden",
-                          flexShrink: 0,
                           border: "1.5px solid rgba(255,255,255,0.90)",
                           background: "var(--orange-pastel)",
                           display: "flex",
@@ -877,36 +863,18 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                         {pl.imageUrl ? (
                           <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
-                          <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                          <Music2 size={24} style={{ color: "var(--orange-core)" }} />
                         )}
                       </div>
 
                       {/* Details */}
-                      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-                        <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <div style={{ width: "100%", textAlign: "center", minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {pl.name}
                         </div>
-                        <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>
                           {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
                         </div>
-                      </div>
-
-                      {/* Radio Button */}
-                      <div
-                        style={{
-                          width: 18,
-                          height: 18,
-                          borderRadius: "50%",
-                          border: "2px solid var(--orange-core)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0
-                        }}
-                      >
-                        {isSelected && (
-                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--orange-core)" }} />
-                        )}
                       </div>
                     </div>
                   );
@@ -983,12 +951,44 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
       {/* Scrollable Content */}
       <div className="lobby-room-scroll">
-        {/* Settings Summary */}
-        <div className="lobby-room-summary">
-          <h4 style={{ fontWeight: "800", fontSize: "0.85rem", color: "var(--text-main)" }}>Room Settings Summary</h4>
-          <p style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>
-            {settings.playlistUrl ? "Spotify Custom Playlist" : `Genres: ${settings.genres.join(", ")}`} • {settings.numSongs} rounds • {settings.difficulty} ({settings.answerDuration}s)
-          </p>
+        {/* Game Info Card */}
+        <div className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            {/* Playlist Thumb */}
+            <div style={{ width: 52, height: 52, borderRadius: "12px", overflow: "hidden", flexShrink: 0, background: "var(--orange-pastel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {selectedPlaylistInfo?.imageUrl ? (
+                <img src={selectedPlaylistInfo.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              ) : (
+                <Music2 size={22} style={{ color: "var(--orange-core)" }} />
+              )}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {language === "th" ? "เพลย์ลิสต์" : "PLAYLIST"}
+              </div>
+              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {selectedPlaylistInfo?.name || (settings.playlistUrl ? "Custom URL" : (language === "th" ? "สุ่ม" : "Random"))}
+              </div>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                {selectedPlaylistInfo?.trackCount || "?"} {language === "th" ? "เพลง" : "songs"}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <div className="stat-chip">
+              <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.numSongs}</span>
+              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> {language === "th" ? "รอบ" : "rounds"}</span>
+            </div>
+            <div className="stat-chip">
+              <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.difficulty}</span>
+              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> · {settings.answerDuration}s</span>
+            </div>
+            <div className="stat-chip">
+              <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.numSongs * settings.answerDuration}s</span>
+              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> {language === "th" ? "รวม" : "total"}</span>
+            </div>
+          </div>
         </div>
 
         <div className="lobby-layout-grid">
@@ -996,7 +996,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           <div>
             <div className="card" style={{ height: "100%", display: "flex", flexDirection: "column", gap: "12px" }}>
               <h3 style={{ fontSize: "1.1rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "8px", borderBottom: "1px solid var(--border)", paddingBottom: "10px", margin: 0 }}>
-                <User size={18} style={{ color: "var(--primary)" }} /> Players ({players.length})
+                <User size={18} style={{ color: "var(--primary)" }} /> {language === "th" ? "ผู้เล่น" : "Players"} ({players.length})
               </h3>
 
               <div className="lobby-players-list">
@@ -1029,46 +1029,6 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
-          {/* Live Chat Section */}
-          <div>
-            <div className="lobby-chat-box">
-              <h3 style={{ fontSize: "1rem", fontWeight: "800", borderBottom: "1px solid var(--border)", paddingBottom: "10px", marginBottom: "10px" }}>Chat Room</h3>
-
-              <div className="lobby-chat-messages">
-                {chatMessages.length === 0 ? (
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                    No messages yet. Say hello!
-                  </div>
-                ) : (
-                  chatMessages.map((msg, idx) => {
-                    const isSystem = msg.sender === "System";
-                    const isMe = msg.sender === playerName;
-                    return (
-                      <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: isSystem ? "center" : (isMe ? "flex-end" : "flex-start"), width: "100%" }}>
-                        {isSystem ? (
-                          <div className="chat-message-system">{msg.text}</div>
-                        ) : (
-                          <>
-                            <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", marginBottom: "2px", padding: "0 4px" }}>{msg.sender}</span>
-                            <div className={`chat-message-bubble ${isMe ? "me" : "other"}`}>{msg.text}</div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={chatEndRef} />
-              </div>
-
-              <form onSubmit={handleSendChat} className="chat-send-form">
-                <input type="text" value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Type a message..." className="input-text" style={{ padding: "10px 14px", fontSize: "0.85rem" }} />
-                <button type="submit" className="btn btn-primary" style={{ padding: "10px 16px", borderRadius: "12px", width: "auto" }}>
-                  <Send size={14} />
-                </button>
-              </form>
             </div>
           </div>
         </div>
@@ -1151,15 +1111,15 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
               </button>
             </div>
 
-            {/* Scrollable list */}
+            {/* Carousel Gallery */}
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
-                gap: "10px",
-                maxHeight: "320px",
-                overflowY: "auto",
-                paddingRight: "6px"
+                gap: "12px",
+                overflowX: "auto",
+                scrollSnapType: "x mandatory",
+                padding: "4px 2px 8px",
+                maxHeight: "none",
               }}
             >
               {presetPlaylists.map((pl) => {
@@ -1171,25 +1131,29 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                       setTempSelectedUrl(pl.url);
                     }}
                     style={{
+                      flex: "0 0 130px",
+                      scrollSnapAlign: "start",
                       display: "flex",
+                      flexDirection: "column",
                       alignItems: "center",
-                      gap: "12px",
-                      padding: "10px 14px",
+                      gap: "8px",
+                      padding: "8px",
                       borderRadius: "14px",
                       border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
                       background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
                       cursor: "pointer",
                       transition: "var(--t-fast)",
+                      transform: isSelected ? "scale(1.03)" : "scale(1)",
+                      boxShadow: isSelected ? "0 4px 16px rgba(255,107,53,0.25)" : "none",
                     }}
                   >
                     {/* Thumbnail */}
                     <div
                       style={{
-                        width: 48,
-                        height: 48,
+                        width: "100%",
+                        aspectRatio: "1/1",
                         borderRadius: "10px",
                         overflow: "hidden",
-                        flexShrink: 0,
                         border: "1.5px solid rgba(255,255,255,0.90)",
                         background: "var(--orange-pastel)",
                         display: "flex",
@@ -1200,36 +1164,18 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                       {pl.imageUrl ? (
                         <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
-                        <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                        <Music2 size={24} style={{ color: "var(--orange-core)" }} />
                       )}
                     </div>
 
                     {/* Details */}
-                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
-                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ width: "100%", textAlign: "center", minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {pl.name}
                       </div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                      <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>
                         {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
                       </div>
-                    </div>
-
-                    {/* Radio Button */}
-                    <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: "50%",
-                        border: "2px solid var(--orange-core)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0
-                      }}
-                    >
-                      {isSelected && (
-                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--orange-core)" }} />
-                      )}
                     </div>
                   </div>
                 );

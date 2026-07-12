@@ -508,6 +508,8 @@ const handleDisconnect = (socket: Socket) => {
 const seedPresetPlaylists = async () => {
   try {
     const defaultPlaylists = [
+      // ⚠️ ก่อนเพิ่ม playlist ใหม่: เช็คว่า count defaultPlaylists ตรงกับใน MongoDB — ถ้าตรงแล้วจะ skip
+      // ถ้าต้องการ force reseed: ลบ collection ใน MongoDB หรือเปลี่ยน URL
       {
         name: "Hot Hits Thailand",
         url: "https://open.spotify.com/playlist/37i9dQZF1DXc51TI5dx7RC?si=t6MQUQl4QHaaXRJgsPC9MA",
@@ -572,6 +574,13 @@ const seedPresetPlaylists = async () => {
 
 
     ];
+
+    const urls = defaultPlaylists.map(p => p.url);
+    const existingCount = await PresetPlaylist.countDocuments({ url: { $in: urls } });
+    if (existingCount >= defaultPlaylists.length) {
+      console.log(`[Seeder] All ${defaultPlaylists.length} playlists already in DB. Skipping.`);
+      return;
+    }
 
     console.log("[Seeder] Seeding preset playlists from Spotify...");
     for (const pl of defaultPlaylists) {

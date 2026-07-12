@@ -1428,17 +1428,10 @@ input:checked+.toggle-slider::before {
 
 .lobby-layout-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr;
   gap: 16px;
   width: 100%;
   margin-top: 16px;
-}
-
-@media (max-width: 991px) {
-  .lobby-layout-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
 }
 
 .lobby-players-list {
@@ -1609,6 +1602,16 @@ input:checked+.toggle-slider::before {
   border: var(--border-glass);
   border-radius: var(--r-md);
   margin-bottom: 12px;
+}
+
+.stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
 }
 
 .lobby-room-footer {
