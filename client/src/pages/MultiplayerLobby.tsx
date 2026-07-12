@@ -705,8 +705,8 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                         {(["Easy", "Hard"] as const).map((d) => (
                           <button key={d} onClick={() => setDifficulty(d)} className={`setup-option-btn ${difficulty === d ? "selected" : ""}`}>
                             {d === "Easy"
-                              ? (language === "th" ? "ง่าย 10วิ" : "Easy 10s")
-                              : (language === "th" ? "ยาก 5วิ" : "Hard 5s")}
+                              ? (language === "th" ? "ง่าย (10 วินาที)" : "Easy (10s)")
+                              : (language === "th" ? "ยาก (5 วินาที)" : "Hard (5s)")}
                           </button>
                         ))}
                       </div>

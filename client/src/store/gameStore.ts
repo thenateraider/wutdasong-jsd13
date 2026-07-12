@@ -50,6 +50,8 @@ export interface Player {
   lastAnswerCorrect?: boolean | null;
   selectedChoiceId?: string | null;
   timeRemainingSec?: number;
+  streak?: number;
+  maxCombo?: number;
 }
 
 export interface ChatMessage {

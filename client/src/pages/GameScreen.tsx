@@ -47,6 +47,7 @@ export function GameScreen({
   const [localTimer, setLocalTimer] = useState(timer);
   const [guessLocked, setGuessLocked] = useState(false);
   const [timeTaken, setTimeTaken] = useState<number | null>(null);
+  const [showRankings, setShowRankings] = useState(false);
 
   const [prevRoundIdx, setPrevRoundIdx] = useState(currentRoundIdx);
   const [prevStatus, setPrevStatus] = useState(status);
@@ -58,8 +59,19 @@ export function GameScreen({
       setLocalTimer(settings.answerDuration);
       setGuessLocked(false);
       setTimeTaken(null);
+      setShowRankings(false);
     }
   }
+
+  // After reveal progress bar ends (4s), show full rankings
+  useEffect(() => {
+    if (status === "reveal") {
+      const timer = setTimeout(() => setShowRankings(true), 4000);
+      return () => clearTimeout(timer);
+    } else {
+      setShowRankings(false);
+    }
+  }, [status, currentRoundIdx]);
 
   useEffect(() => {
     if (!currentRound) return;
@@ -170,7 +182,7 @@ export function GameScreen({
 
   const currentMultiplier = mode === "single"
     ? useGameStore.getState().singlePlayerStreak
-    : (me ? (me as any).streak : 1);
+    : (me ? (me.streak || 1) : 1);
 
   // SVG circle math
   const RADIUS = 30;
@@ -492,7 +504,6 @@ export function GameScreen({
               {(() => {
                 const sorted = [...players].sort((a, b) => b.score - a.score);
                 const top3 = sorted.slice(0, 3);
-                const others = sorted.slice(3);
 
                 return (
                   <>
@@ -525,79 +536,24 @@ export function GameScreen({
                             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                               <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{medalEmoji}</span>
                               <span style={{ fontSize: "1.2rem" }}>{p.avatar}</span>
-                              <span
-                                style={{
-                                  fontSize: "0.95rem",
-                                  fontWeight: 900,
-                                  color: "var(--text-dark)",
-                                }}
-                              >
+                              <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "var(--text-dark)" }}>
                                 {p.name}
                               </span>
                             </div>
-                            <span
-                              style={{
-                                fontSize: "1.05rem",
-                                fontWeight: 950,
-                                color: "var(--orange-core)",
-                              }}
-                            >
-                              {p.score}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              {status === "playing" && p.streak && p.streak >= 2 && (
+                                <span style={{ fontSize: "0.75rem", fontWeight: 900, color: "#FF9F1C" }}>
+                                  🔥 {p.streak}x
+                                </span>
+                              )}
+                              <span style={{ fontSize: "1.05rem", fontWeight: 950, color: "var(--orange-core)" }}>
+                                {p.score}
+                              </span>
+                            </div>
                           </div>
                         );
                       })}
                     </div>
-
-                    {/* Others list (Smaller, without avatars) */}
-                    {others.length > 0 && (
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "4px",
-                          borderTop: "1px dashed rgba(0,0,0,0.08)",
-                          paddingTop: "6px",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {others.map((p, idx) => {
-                          const rank = idx + 4;
-                          return (
-                            <div
-                              key={p.id}
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "space-between",
-                                padding: "4px 8px",
-                                background: "rgba(0,0,0,0.02)",
-                                borderRadius: "8px",
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontSize: "0.82rem",
-                                  fontWeight: 800,
-                                  color: "var(--text-muted)",
-                                }}
-                              >
-                                #{rank} {p.name}
-                              </span>
-                              <span
-                                style={{
-                                  fontSize: "0.82rem",
-                                  fontWeight: 900,
-                                  color: "var(--text-muted)",
-                                }}
-                              >
-                                {p.score}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
                   </>
                 );
               })()}
@@ -606,8 +562,8 @@ export function GameScreen({
         )}
       </div>
 
-      {/* ── Reveal Overlay ── */}
-      {isRevealPhase && correctAnswer && (
+      {/* ── Reveal Overlay (first 4s) ── */}
+      {isRevealPhase && correctAnswer && !showRankings && (
         <div
           className="modal-overlay"
           style={{
@@ -888,6 +844,91 @@ export function GameScreen({
                   {correctAnswer.album}
                 </p>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Full Rankings Overlay (after reveal) ── */}
+      {isRevealPhase && showRankings && (
+        <div
+          className="modal-overlay"
+          style={{
+            backgroundColor: "rgba(10, 10, 12, 0.85)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            zIndex: 100,
+          }}
+        >
+          <div
+            className="animate-popup-bounce"
+            style={{
+              width: "90%",
+              maxWidth: "440px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              alignItems: "center",
+            }}
+          >
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 900, color: "#FFF" }}>
+              📊 {language === "th" ? "อันดับปัจจุบัน" : "Current Rankings"}
+            </h2>
+
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: "8px",
+                maxHeight: "60vh",
+                overflowY: "auto",
+              }}
+            >
+              {[...players].sort((a, b) => b.score - a.score).map((p, idx) => {
+                const medalEmoji = idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`;
+                const isMe = mode === "multi" && p.id === useGameStore.getState().socket?.id;
+                return (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 16px",
+                      borderRadius: "14px",
+                      background: isMe ? "rgba(255, 107, 53, 0.15)" : "rgba(255, 255, 255, 0.08)",
+                      border: isMe ? "1.5px solid rgba(255,107,53,0.4)" : "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <span style={{ fontSize: "1.2rem", fontWeight: 900, color: "#FFF", minWidth: "28px", textAlign: "center" }}>
+                        {medalEmoji}
+                      </span>
+                      <span style={{ fontSize: "1.3rem" }}>{p.avatar}</span>
+                      <div>
+                        <div style={{ fontSize: "0.95rem", fontWeight: 800, color: "#FFF" }}>
+                          {p.name}
+                          {isMe && <span style={{ fontSize: "0.65rem", padding: "1px 6px", backgroundColor: "var(--orange-core)", color: "#fff", borderRadius: "4px", marginLeft: "6px" }}>You</span>}
+                        </div>
+                        {p.streak && p.streak >= 2 && (
+                          <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#FF9F1C" }}>
+                            🔥 {p.streak}x combo
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "1.2rem", fontWeight: 950, color: "var(--orange-core)" }}>
+                        {p.score}
+                      </div>
+                      <div style={{ fontSize: "0.65rem", fontWeight: 600, color: "rgba(255,255,255,0.4)" }}>
+                        pts
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

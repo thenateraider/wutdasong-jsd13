@@ -281,7 +281,7 @@ const revealMultiplayerAnswers = (roomCode: string) => {
       });
       console.log(`[Game] Room ${roomCode} - Game finished. Showing results.`);
     }
-  }, 4000); // 4 seconds delay for reveal so players can view results
+    }, 9000); // 4s reveal + 5s rankings display
 };
 
 io.on("connection", (socket: Socket) => {

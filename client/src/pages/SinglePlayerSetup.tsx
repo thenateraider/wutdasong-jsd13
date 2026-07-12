@@ -69,7 +69,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     const activeUrl = useCustomPlaylist
       ? (customUrl.trim() || selectedPlaylistInfo?.url || "")
       : (selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || ""));
-    
+
     const settings: GameSettings = {
       numSongs,
       answerDuration: difficulty === "Easy" ? 10 : 5,
@@ -117,7 +117,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           gap: "18px",
           paddingRight: "6px"
         }}>
-          
+
           {/* ── Source Toggle Card ── */}
           <div className="setup-section-card">
             {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
@@ -156,7 +156,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           {!useCustomPlaylist && (
             <div className="setup-section-card">
               {sectionHeader("🎧", language === "th" ? "หมวดเพลงที่เลือกอยู่" : "Selected Music Category")}
-              
+
               {selectedPlaylistInfo ? (
                 <div
                   style={{
@@ -570,8 +570,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                       className={`setup-option-btn ${difficulty === d ? "selected" : ""}`}
                     >
                       {d === "Easy"
-                        ? (language === "th" ? "ง่าย 10วิ" : "Easy 10s")
-                        : (language === "th" ? "ยาก 5วิ" : "Hard 5s")}
+                        ? (language === "th" ? "ง่าย (10 วินาที)" : "Easy (10s)")
+                        : (language === "th" ? "ยาก (5 วินาที)" : "Hard (5s)")}
                     </button>
                   ))}
                 </div>
