@@ -54,20 +54,8 @@ class MusicService {
     this.getSpotifyToken();
   }
 
-  // Get or refresh Spotify Client Credentials token
-  private async getSpotifyToken(): Promise<string | null> {
-    const clientId = process.env.SPOTIFY_CLIENT_ID;
-    const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
-
-    if (!clientId || !clientSecret) {
-      return null;
-    }
-
-    // Return cached token if valid
-    if (this.spotifyToken && Date.now() < this.tokenExpiresAt) {
-      return this.spotifyToken;
-    }
-
+  // Try a pair of Spotify credentials and return token if successful
+  private async authWithCredentials(clientId: string, clientSecret: string, label: string): Promise<string | null> {
     try {
       const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
       const response = await axios.post(
@@ -82,14 +70,36 @@ class MusicService {
       );
 
       this.spotifyToken = response.data.access_token;
-      // Expires in response.data.expires_in seconds (usually 3600), refresh 1 min early
       this.tokenExpiresAt = Date.now() + (response.data.expires_in - 60) * 1000;
-      console.log("[Spotify] Access Token refreshed successfully.");
+      console.log(`[Spotify] Token refreshed (${label}).`);
       return this.spotifyToken;
     } catch (error: any) {
-      console.error("[Spotify] Error authenticating client credentials:", error.message);
+      console.warn(`[Spotify] Auth failed (${label}): ${error.message}`);
       return null;
     }
+  }
+
+  // Get or refresh Spotify Client Credentials token
+  private async getSpotifyToken(): Promise<string | null> {
+    // Return cached token if valid
+    if (this.spotifyToken && Date.now() < this.tokenExpiresAt) {
+      return this.spotifyToken;
+    }
+
+    const pairs: { id: string | undefined; secret: string | undefined; label: string }[] = [
+      { id: process.env.SPOTIFY_CLIENT_ID, secret: process.env.SPOTIFY_CLIENT_SECRET, label: "primary" },
+      { id: process.env.SPOTIFY_CLIENT_ID_2, secret: process.env.SPOTIFY_CLIENT_SECRET_2, label: "fallback" },
+    ];
+
+    for (const pair of pairs) {
+      if (pair.id && pair.secret) {
+        const token = await this.authWithCredentials(pair.id, pair.secret, pair.label);
+        if (token) return token;
+      }
+    }
+
+    console.warn("[Spotify] No valid credentials found. Falling back to iTunes API.");
+    return null;
   }
 
   // Search Spotify Web API for a track
@@ -503,6 +513,9 @@ class MusicService {
       if (error.response?.status === 404) {
         throw new Error("Spotify playlist not found. Make sure the playlist is PUBLIC.");
       }
+      if (error.response?.status === 403) {
+        throw new Error("Spotify API access requires the app owner to have a Premium subscription. Update SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET from a Premium account, or remove them to disable Spotify API (playlist-based games will use built-in songs).");
+      }
       throw new Error(error.message || "Failed to fetch playlist tracks.");
     }
   }
@@ -523,7 +536,17 @@ class MusicService {
       if (!playlistId) {
         throw new Error("Invalid Spotify playlist URL. Make sure it looks like 'https://open.spotify.com/playlist/...'");
       }
-      pool = await this.fetchSpotifyPlaylistTracks(playlistId);
+      try {
+        pool = await this.fetchSpotifyPlaylistTracks(playlistId);
+      } catch (err: any) {
+        console.warn(`[MusicService] Playlist fetch failed: ${err.message}. Falling back to genre-based seed songs.`);
+        // Fall back to genre-based selection so game can still work
+        const isRandom = genres.includes("Random") || genres.length === 0;
+        pool = SEED_SONGS.filter((song) => isRandom || genres.includes(song.genre));
+        if (pool.length === 0) {
+          throw new Error("Could not fetch playlist tracks and no seed songs match selected genres.");
+        }
+      }
     } else {
       // 1. Filter songs by selected genres (handle 'Random' or empty as all)
       const isRandom = genres.includes("Random") || genres.length === 0;
