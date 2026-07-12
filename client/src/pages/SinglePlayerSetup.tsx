@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { GameSettings, useGameStore } from "../store/gameStore";
 import { ArrowLeft, Play, Info, Loader2, Music2, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { translations } from "../utils/translations";
@@ -22,6 +22,16 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
   const [tempSelectedUrl, setTempSelectedUrl] = useState<string>("");
   const [customLoading, setCustomLoading] = useState(false);
   const [customError, setCustomError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Clear and reset to default preset on mount
+    setCustomUrl("");
+    setCustomError(null);
+    const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
+    if (defaultPl) {
+      setSelectedPlaylist(defaultPl.url);
+    }
+  }, []);
 
   const handleCustomUrlSearch = async () => {
     const trimmed = customUrl.trim();

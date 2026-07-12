@@ -64,6 +64,16 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  useEffect(() => {
+    // Reset custom playlist state on mount or activeTab switch
+    setCustomUrl("");
+    setCustomError(null);
+    const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
+    if (defaultPl) {
+      setSelectedPlaylist(defaultPl.url);
+    }
+  }, [activeTab]);
+
   const handleCopyCode = () => {
     if (roomCode) {
       navigator.clipboard.writeText(roomCode);
@@ -162,7 +172,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   // If NOT in a room, show the Join/Create lobby panels
   if (!roomCode) {
     return (
-      <div className="page-container" style={{ maxWidth: "520px" }}>
+      <div className="page-container" style={{ maxWidth: "520px", maxHeight: "95vh", overflowY: "auto", paddingRight: "6px" }}>
         <div style={{ width: "100%", textAlign: "left" }}>
           <button onClick={onBack} className="back-link">
             <ArrowLeft size={18} />
@@ -766,13 +776,186 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
             </div>
           </div>
         )}
+
+        {/* Playlist Selector Modal */}
+        {isModalOpen && (
+          <div
+            className="modal-overlay"
+            style={{
+              zIndex: 1000,
+              background: "rgba(0, 0, 0, 0.4)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+            }}
+          >
+            <div
+              className="card animate-popup-bounce"
+              style={{
+                width: "95%",
+                maxWidth: "460px",
+                padding: "24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "16px",
+                background: "rgba(255, 255, 255, 0.95)",
+                boxShadow: "var(--shadow-lg)",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <span style={{ fontSize: "1.3rem" }}>🎵</span>
+                  <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                    {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                  }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "var(--text-muted)",
+                    padding: "4px"
+                  }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Scrollable list */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  maxHeight: "320px",
+                  overflowY: "auto",
+                  paddingRight: "6px"
+                }}
+              >
+                {presetPlaylists.map((pl) => {
+                  const isSelected = tempSelectedUrl === pl.url;
+                  return (
+                    <div
+                      key={pl.url}
+                      onClick={() => {
+                        setTempSelectedUrl(pl.url);
+                      }}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "10px 14px",
+                        borderRadius: "14px",
+                        border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
+                        background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
+                        cursor: "pointer",
+                        transition: "var(--t-fast)",
+                      }}
+                    >
+                      {/* Thumbnail */}
+                      <div
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: "10px",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          border: "1.5px solid rgba(255,255,255,0.90)",
+                          background: "var(--orange-pastel)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center"
+                        }}
+                      >
+                        {pl.imageUrl ? (
+                          <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ) : (
+                          <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                        )}
+                      </div>
+
+                      {/* Details */}
+                      <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                        <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {pl.name}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                          {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
+                        </div>
+                      </div>
+
+                      {/* Radio Button */}
+                      <div
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: "50%",
+                          border: "2px solid var(--orange-core)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flexShrink: 0
+                        }}
+                      >
+                        {isSelected && (
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--orange-core)" }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Footer Buttons */}
+              <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+                <button
+                  onClick={() => {
+                    setIsModalOpen(false);
+                  }}
+                  className="btn ripple"
+                  style={{
+                    flex: 1,
+                    background: "rgba(0, 0, 0, 0.05)",
+                    border: "1px solid rgba(0,0,0,0.1)",
+                    color: "var(--text-muted)",
+                    padding: "10px",
+                    borderRadius: "12px",
+                    fontWeight: 800,
+                  }}
+                >
+                  {language === "th" ? "ยกเลิก" : "Cancel"}
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedPlaylist(tempSelectedUrl);
+                    setCustomUrl("");
+                    setCustomError(null);
+                    setIsModalOpen(false);
+                  }}
+                  className="btn btn-primary ripple"
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: "12px",
+                    fontWeight: 800,
+                  }}
+                >
+                  {language === "th" ? "ยืนยันการเลือก" : "Confirm Selection"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   // If inside a room lobby, show the Lobby screen
   return (
-    <div className="page-container" style={{ maxWidth: "960px", justifyContent: "flex-start" }}>
+    <div className="page-container" style={{ maxWidth: "960px", justifyContent: "flex-start", maxHeight: "95vh", overflowY: "auto", paddingRight: "6px" }}>
       {/* Header Room Info */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", paddingBottom: "16px", borderBottom: "1px solid var(--border)", marginBottom: "24px", flexWrap: "wrap", gap: "16px" }}>
         <div>

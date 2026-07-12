@@ -188,14 +188,14 @@ export function GameScreen({
       <div className="split-card-container" key={currentRoundIdx}>
 
         {/* ── Player Header Card (Structure for Multiplayer preview) ── */}
-        <div 
-          className="mini-card animate-card-swipe" 
-          style={{ 
-            width: "100%", 
-            padding: "10px 16px", 
-            borderRadius: "20px", 
-            gap: "12px", 
-            justifyContent: "flex-start", 
+        <div
+          className="mini-card animate-card-swipe"
+          style={{
+            width: "100%",
+            padding: "10px 16px",
+            borderRadius: "20px",
+            gap: "12px",
+            justifyContent: "flex-start",
             minHeight: "56px",
             background: "rgba(255, 255, 255, 0.45)",
             border: "1.5px solid rgba(255, 107, 53, 0.15)",
@@ -203,15 +203,15 @@ export function GameScreen({
           }}
         >
           {/* Avatar Icon */}
-          <div 
-            style={{ 
-              width: "36px", 
-              height: "36px", 
-              borderRadius: "10px", 
-              background: "var(--grad-primary)", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center", 
+          <div
+            style={{
+              width: "36px",
+              height: "36px",
+              borderRadius: "10px",
+              background: "var(--grad-primary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               fontSize: "1.2rem",
               boxShadow: "0 4px 10px rgba(255, 107, 53, 0.25)"
             }}
@@ -444,6 +444,170 @@ export function GameScreen({
             );
           })}
         </div>
+
+        {/* ── Row 4: Scoreboard Card (Multiplayer only) ── */}
+        {mode === "multi" && (
+          <div
+            className="setup-section-card"
+            style={{
+              marginTop: "16px",
+              padding: "16px",
+              width: "100%",
+              boxSizing: "border-box",
+              borderRadius: "20px",
+              background: "rgba(255, 255, 255, 0.85)",
+              border: "1.5px solid rgba(255, 107, 53, 0.15)",
+              boxShadow: "var(--shadow-sm)",
+              maxHeight: "220px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}
+          >
+            {/* Header */}
+            <div
+              style={{
+                fontFamily: "Outfit, sans-serif",
+                fontSize: "1rem",
+                fontWeight: 900,
+                color: "var(--text-dark)",
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                borderBottom: "1.5px solid rgba(0,0,0,0.06)",
+                paddingBottom: "6px",
+              }}
+            >
+              <span>📊</span>
+              <span>{language === "th" ? "กระดานคะแนน" : "Scoreboard"}</span>
+            </div>
+
+            {/* Scrollable List container */}
+            <div
+              style={{
+                overflowY: "auto",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                paddingRight: "4px",
+              }}
+            >
+              {(() => {
+                const sorted = [...players].sort((a, b) => b.score - a.score);
+                const top3 = sorted.slice(0, 3);
+                const others = sorted.slice(3);
+
+                return (
+                  <>
+                    {/* Top 3 list (Larger, with avatars) */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {top3.map((p, idx) => {
+                        const medalEmoji = idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉";
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "6px 12px",
+                              borderRadius: "12px",
+                              background: idx === 0
+                                ? "rgba(255, 215, 0, 0.12)"
+                                : idx === 1
+                                  ? "rgba(192, 192, 192, 0.12)"
+                                  : "rgba(205, 127, 50, 0.12)",
+                              border: `1px solid ${idx === 0
+                                  ? "rgba(255, 215, 0, 0.3)"
+                                  : idx === 1
+                                    ? "rgba(192, 192, 192, 0.3)"
+                                    : "rgba(205, 127, 50, 0.3)"
+                                }`,
+                            }}
+                          >
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                              <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{medalEmoji}</span>
+                              <span style={{ fontSize: "1.2rem" }}>{p.avatar}</span>
+                              <span
+                                style={{
+                                  fontSize: "0.95rem",
+                                  fontWeight: 900,
+                                  color: "var(--text-dark)",
+                                }}
+                              >
+                                {p.name}
+                              </span>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: "1.05rem",
+                                fontWeight: 950,
+                                color: "var(--orange-core)",
+                              }}
+                            >
+                              {p.score}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Others list (Smaller, without avatars) */}
+                    {others.length > 0 && (
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: "4px",
+                          borderTop: "1px dashed rgba(0,0,0,0.08)",
+                          paddingTop: "6px",
+                          marginTop: "2px",
+                        }}
+                      >
+                        {others.map((p, idx) => {
+                          const rank = idx + 4;
+                          return (
+                            <div
+                              key={p.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "4px 8px",
+                                background: "rgba(0,0,0,0.02)",
+                                borderRadius: "8px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  fontSize: "0.82rem",
+                                  fontWeight: 800,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                #{rank} {p.name}
+                              </span>
+                              <span
+                                style={{
+                                  fontSize: "0.82rem",
+                                  fontWeight: 900,
+                                  color: "var(--text-muted)",
+                                }}
+                              >
+                                {p.score}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Reveal Overlay ── */}
@@ -518,8 +682,8 @@ export function GameScreen({
                     {isCorrect
                       ? translations[language].correctIndicator
                       : (!selectedChoiceId
-                          ? translations[language].timesUpIndicator
-                          : translations[language].falseIndicator)}
+                        ? translations[language].timesUpIndicator
+                        : translations[language].falseIndicator)}
                   </div>
 
                   {isCorrect && currentMultiplier >= 2 && (
