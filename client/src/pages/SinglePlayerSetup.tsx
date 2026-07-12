@@ -212,7 +212,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        lineHeight: 1.2,
+                        lineHeight: 1.4,
+                        padding: "2px 0",
                         marginBottom: "4px",
                       }}
                     >
@@ -490,7 +491,8 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                         whiteSpace: "nowrap",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
-                        lineHeight: 1.2,
+                        lineHeight: 1.4,
+                        padding: "2px 0",
                         marginBottom: "4px",
                       }}
                     >

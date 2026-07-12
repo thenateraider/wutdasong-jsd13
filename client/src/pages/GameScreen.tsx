@@ -240,7 +240,7 @@ export function GameScreen({
           </div>
           {/* Player details */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
-            <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--text-dark)", lineHeight: 1.2 }}>
+            <span style={{ fontSize: "0.85rem", fontWeight: 800, color: "var(--text-dark)", lineHeight: 1.4 }}>
               {playerName || "Guest Player"}
             </span>
             <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -456,7 +456,8 @@ export function GameScreen({
                       fontWeight: 800,
                       fontFamily: "Outfit, sans-serif",
                       color: "var(--text-dark)",
-                      lineHeight: 1.25,
+                      lineHeight: 1.4,
+                      padding: "2px 0",
                     }}
                   >
                     {choice.title}
@@ -715,7 +716,7 @@ export function GameScreen({
                           {translations[language].timeTakenText.replace("{time}", String(timeTaken))}
                         </span>
                       )}
-                      <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "var(--text-mid)", lineHeight: 1.2 }}>
+                      <span style={{ fontSize: "0.72rem", fontWeight: 800, color: "var(--text-mid)", lineHeight: 1.4 }}>
                         {timeTaken !== null ? getCompliment(timeTaken, settings.answerDuration) : "สุดยอดไปเลย! 🎉"}
                       </span>
                     </div>
@@ -821,7 +822,8 @@ export function GameScreen({
                     fontSize: "1.25rem",
                     fontWeight: 900,
                     color: "#FFFFFF",
-                    lineHeight: 1.25,
+                    lineHeight: 1.4,
+                    padding: "2px 0",
                     margin: 0,
                     textShadow: "0 1px 4px rgba(0,0,0,0.5)",
                     overflow: "hidden",
