@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import musicService, { RoundData, GameTrack } from "./services/musicService";
 import roomManager, { Room } from "./game/RoomManager";
 import GameEngine, { GameSettings } from "./game/GameEngine";
-import { connectDB, Leaderboard, IssueReport } from "./db/mongodb";
+import { connectDB, Leaderboard, IssueReport, PresetPlaylist } from "./db/mongodb";
 
 dotenv.config();
 
@@ -75,6 +75,16 @@ app.get("/api/playlist-info", async (req, res) => {
   } catch (error: any) {
     console.error("[PlaylistInfo] Error:", error.message);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Get preset playlists from MongoDB
+app.get("/api/playlists", async (req, res) => {
+  try {
+    const playlists = await PresetPlaylist.find().sort({ isDefault: -1, name: 1 });
+    res.json(playlists);
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to retrieve playlists: " + err.message });
   }
 });
 
@@ -482,9 +492,81 @@ const handleDisconnect = (socket: Socket) => {
   }
 };
 
+const seedPresetPlaylists = async () => {
+  try {
+    const count = await PresetPlaylist.countDocuments();
+    if (count > 0) {
+      console.log("[Seeder] Playlists already seeded. Skipping.");
+      return;
+    }
+
+    const defaultPlaylists = [
+      {
+        name: "Hot Hits Thailand",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DXc51TI5dx7RC?si=t6MQUQl4QHaaXRJgsPC9MA",
+        isDefault: true
+      },
+      {
+        name: "Rock สากล 90-2000s",
+        url: "https://open.spotify.com/playlist/7BSZj2llc5gi5sO87LTb1i?si=9s31_nsLROufx6GiI5wOHQ",
+        isDefault: false
+      },
+      {
+        name: "ไทยสากลฮิต 2000",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DX2GTi6o7iOrE?si=i_HTz6LGQqWUok4abRtjCA",
+        isDefault: false
+      },
+      {
+        name: "Kamikaze",
+        url: "https://open.spotify.com/playlist/4Gxj7FDzeFUFsCdTPpC3cY?si=EFINAX31TpmR3lLgmO4Zsw",
+        isDefault: false
+      },
+      {
+        name: "ลูกทุ่งยอดนิยม",
+        url: "https://open.spotify.com/playlist/37i9dQZF1DXasLXGV6xWIC?si=IeXk4wFeRVKxg2HTfICl9g",
+        isDefault: false
+      }
+    ];
+
+    console.log("[Seeder] Seeding preset playlists from Spotify...");
+    for (const pl of defaultPlaylists) {
+      const plId = musicService.extractPlaylistId(pl.url);
+      if (plId) {
+        const info = await musicService.fetchPlaylistInfo(plId);
+        if (info) {
+          await PresetPlaylist.create({
+            name: pl.name,
+            url: pl.url,
+            imageUrl: info.imageUrl || "",
+            trackCount: info.trackCount || 0,
+            isDefault: pl.isDefault
+          });
+          console.log(`[Seeder] Seeded playlist: ${pl.name} (${info.trackCount} tracks)`);
+        } else {
+          // Fallback if Spotify request fails
+          await PresetPlaylist.create({
+            name: pl.name,
+            url: pl.url,
+            imageUrl: "",
+            trackCount: 0,
+            isDefault: pl.isDefault
+          });
+          console.warn(`[Seeder] Warning: Could not fetch Spotify info for ${pl.name}. Saved with empty meta.`);
+        }
+      }
+    }
+    console.log("[Seeder] Seeding preset playlists completed.");
+  } catch (error: any) {
+    console.error("[Seeder] Error seeding preset playlists:", error.message);
+  }
+};
+
 const startServer = async () => {
   // Connect to database first
   await connectDB(process.env.MONGO_URI);
+  
+  // Seed playlists if collection is empty
+  await seedPresetPlaylists();
 
   server.listen(port, () => {
     console.log(`[Server] Guess The Song Server running on port ${port}`);

@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from "react";
-import { GameSettings, useGameStore, API_URL } from "../store/gameStore";
-import { ArrowLeft, Play, Info, Loader2, Music2, CheckCircle2, AlertCircle, X, Search } from "lucide-react";
+import { useState } from "react";
+import { GameSettings, useGameStore } from "../store/gameStore";
+import { ArrowLeft, Play, Info, Loader2, Music2, CheckCircle2, AlertCircle, X } from "lucide-react";
 import { translations } from "../utils/translations";
 
 interface SinglePlayerSetupProps {
@@ -9,109 +9,58 @@ interface SinglePlayerSetupProps {
   playClickSFX: () => void;
 }
 
-interface PlaylistInfo {
-  name: string;
-  imageUrl: string | null;
-  trackCount: number;
-}
-
-const GENRES = ["Pop", "Rock", "Anime", "Thai", "K-pop", "Game", "Movie"];
-
 export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlayerSetupProps) {
-  const { language } = useGameStore();
+  const { language, presetPlaylists, selectedPlaylistInfo, setSelectedPlaylist } = useGameStore();
   const [numSongs, setNumSongs] = useState<number>(10);
   const [answerDuration, setAnswerDuration] = useState<number>(10);
   const clipDuration = 5;
   const difficulty = "Normal";
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(["Pop"]);
-  const [usePlaylist, setUsePlaylist] = useState<boolean>(false);
-  const [playlistUrl, setPlaylistUrl] = useState<string>("");
 
-  const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null);
-  const [playlistLoading, setPlaylistLoading] = useState(false);
-  const [playlistError, setPlaylistError] = useState<string | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [customUrl, setCustomUrl] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tempSelectedUrl, setTempSelectedUrl] = useState<string>("");
+  const [customLoading, setCustomLoading] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
 
-  const toggleGenre = (genre: string) => {
-    if (selectedGenres.includes(genre)) {
-      if (selectedGenres.length > 1) setSelectedGenres(selectedGenres.filter((g) => g !== genre));
-    } else {
-      setSelectedGenres([...selectedGenres, genre]);
+  const handleCustomUrlChange = async (url: string) => {
+    setCustomUrl(url);
+    if (!url.trim()) {
+      setCustomError(null);
+      // Revert to default preset
+      const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
+      if (defaultPl) {
+        setSelectedPlaylist(defaultPl.url);
+      }
+      return;
+    }
+
+    if (!url.toLowerCase().includes("spotify")) {
+      setCustomError(language === "th" ? "กรุณาใส่ลิงก์ Spotify Playlist ที่ถูกต้อง" : "Please enter a valid Spotify Playlist URL");
+      return;
+    }
+
+    setCustomLoading(true);
+    setCustomError(null);
+    try {
+      await setSelectedPlaylist(url);
+    } catch (err) {
+      setCustomError(language === "th" ? "ดึงข้อมูลล้มเหลว กรุณาตรวจสอบว่าเพลย์ลิสต์เป็น Public" : "Failed to fetch playlist. Make sure it is public.");
+    } finally {
+      setCustomLoading(false);
     }
   };
 
   const handleStart = () => {
+    const activeUrl = customUrl.trim() || selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || "");
     const settings: GameSettings = {
       numSongs,
       answerDuration,
       clipDuration,
-      genres: usePlaylist ? [] : selectedGenres,
+      genres: [],
       difficulty,
-      playlistUrl: usePlaylist && playlistUrl.trim() ? playlistUrl.trim() : undefined,
+      playlistUrl: activeUrl || undefined,
     };
     onStart(settings);
-  };
-
-  // Core fetch function — called by debounce and manual search button
-  const fetchPlaylistInfo = useCallback(async (url: string) => {
-    const trimmed = url.trim();
-    if (!trimmed) return;
-
-    setPlaylistLoading(true);
-    setPlaylistInfo(null);
-    setPlaylistError(null);
-
-    try {
-      // Query backend server directly using API_URL (works in both local dev and production on Vercel)
-      const res = await fetch(`${API_URL}/api/playlist-info?url=${encodeURIComponent(trimmed)}`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        setPlaylistError(data.error || "ไม่สามารถดึงข้อมูล playlist ได้");
-        setPlaylistInfo(null);
-      } else {
-        setPlaylistInfo(data);
-        setPlaylistError(null);
-        if (data.trackCount < numSongs) {
-          if (data.trackCount >= 10) setNumSongs(10);
-          else setNumSongs(5);
-        }
-      }
-    } catch (err) {
-      console.error("[PlaylistPreview] fetch error:", err);
-      setPlaylistError("เชื่อมต่อ server ไม่ได้ กรุณาตรวจสอบว่า server รันอยู่");
-      setPlaylistInfo(null);
-    } finally {
-      setPlaylistLoading(false);
-    }
-  }, []);
-
-  // Debounced auto-fetch when typing
-  const handlePlaylistUrlChange = (value: string) => {
-    setPlaylistUrl(value);
-    setPlaylistInfo(null);
-    setPlaylistError(null);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-
-    if (!value.trim() || !value.toLowerCase().includes("spotify")) {
-      setPlaylistLoading(false);
-      return;
-    }
-
-    setPlaylistLoading(true);
-    debounceRef.current = setTimeout(() => {
-      fetchPlaylistInfo(value);
-    }, 900);
-  };
-
-  // Clear URL + reset state
-  const clearUrl = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    setPlaylistUrl("");
-    setPlaylistInfo(null);
-    setPlaylistError(null);
-    setPlaylistLoading(false);
   };
 
   const sectionHeader = (emoji: string, text: string) => (
@@ -121,8 +70,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
     </div>
   );
 
-  const isValidSpotifyUrl = playlistUrl.toLowerCase().includes("spotify") && playlistUrl.includes("playlist");
-  const canStart = !usePlaylist || (playlistUrl.trim() !== "" && !playlistLoading && playlistInfo !== null && playlistInfo.trackCount >= 5);
+  const canStart = !customLoading && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5;
 
   return (
     <div className="page-container" style={{ maxWidth: "560px" }}>
@@ -140,7 +88,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           🎮 {translations[language].setupTitle}
         </h2>
 
-        {/* Scrollable Setup Options Container (Max Height 75vh) */}
+        {/* Scrollable Setup Options Container */}
         <div style={{
           maxHeight: "55vh",
           overflowY: "auto",
@@ -149,329 +97,166 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           gap: "18px",
           paddingRight: "6px"
         }}>
-
-          {/* ── Source toggle ── */}
+          
+          {/* ── Playlist Selection Card ── */}
           <div className="setup-section-card">
-            {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
-            <div className="toggle-row" style={{ marginBottom: 0 }}>
-              <div>
-                <h4 style={{ fontFamily: "Outfit, sans-serif", fontWeight: 800, fontSize: "0.90rem", color: "var(--text-dark)" }}>
-                  {language === "th" ? "เล่นจาก Spotify Playlist" : "Play from Spotify Playlist"}
-                </h4>
-                <p style={{ fontSize: "0.73rem", color: "var(--text-muted)", marginTop: "2px" }}>
-                  {language === "th" ? "วางลิงค์ playlist สาธารณะของคุณ" : "Paste your public Spotify playlist URL"}
-                </p>
-              </div>
-              <label className="toggle-switch">
-                <input
-                  type="checkbox"
-                  checked={usePlaylist}
-                  onChange={(e) => {
-                    playClickSFX();
-                    setUsePlaylist(e.target.checked);
-                    clearUrl();
-                  }}
-                />
-                <span className="toggle-slider" />
-              </label>
-            </div>
-          </div>
-
-          {/* ── Playlist URL section ── */}
-          {usePlaylist && (
-            <div className="setup-section-card">
-              {sectionHeader("🔗", "Spotify Playlist")}
-
-              {/* Input row with X and Search buttons */}
-              <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
-                {/* URL input */}
-                <div style={{ position: "relative", flex: 1 }}>
-                  <input
-                    type="text"
-                    placeholder={translations[language].playlistUrlPlaceholder}
-                    value={playlistUrl}
-                    onChange={(e) => handlePlaylistUrlChange(e.target.value)}
-                    className="input-text"
-                    style={{
-                      paddingRight: playlistUrl ? "38px" : "14px",
-                      width: "100%",
-                      fontSize: "0.85rem",
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && isValidSpotifyUrl) fetchPlaylistInfo(playlistUrl);
-                    }}
-                  />
-                  {/* Status icon inside input */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      right: "10px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    {playlistLoading && (
-                      <Loader2
-                        size={15}
-                        style={{
-                          color: "var(--orange-core)",
-                          animation: "spin 1s linear infinite",
-                        }}
-                      />
-                    )}
-                    {!playlistLoading && playlistInfo && (
-                      <CheckCircle2 size={15} style={{ color: "var(--success)" }} />
-                    )}
-                    {!playlistLoading && playlistError && !playlistInfo && (
-                      <AlertCircle size={15} style={{ color: "var(--error)" }} />
-                    )}
-                  </div>
-                </div>
-
-                {/* Clear (X) button */}
-                {playlistUrl && (
-                  <button
-                    onClick={() => { playClickSFX(); clearUrl(); }}
-                    title={language === "th" ? "ล้างลิงค์" : "Clear URL"}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: "42px",
-                      height: "42px",
-                      flexShrink: 0,
-                      borderRadius: "var(--r-md)",
-                      border: "1.5px solid rgba(239,68,68,0.30)",
-                      background: "rgba(239,68,68,0.08)",
-                      color: "var(--error)",
-                      cursor: "pointer",
-                      transition: "var(--t-fast)",
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.16)";
-                      (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)";
-                      (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
-                    }}
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-
-                {/* Search button */}
-                <button
-                  onClick={() => {
-                    playClickSFX();
-                    if (isValidSpotifyUrl) fetchPlaylistInfo(playlistUrl);
-                  }}
-                  disabled={!isValidSpotifyUrl || playlistLoading}
-                  title={language === "th" ? "ดึงข้อมูล playlist" : "Fetch playlist details"}
+            {sectionHeader("🎵", language === "th" ? "หมวดเพลง / เพลย์ลิสต์" : "Music Category / Playlist")}
+            
+            {selectedPlaylistInfo ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "14px",
+                  padding: "14px 16px",
+                  background: "rgba(255,255,255,0.82)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1.5px solid rgba(255, 107, 53, 0.20)",
+                  borderRadius: "var(--r-xl)",
+                  boxShadow: "var(--shadow-sm)",
+                  marginBottom: "12px",
+                  animation: "springPop 0.32s var(--ease-spring) forwards",
+                }}
+              >
+                {/* Cover art */}
+                <div
                   style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "var(--r-md)",
+                    overflow: "hidden",
+                    flexShrink: 0,
+                    border: "2px solid rgba(255,255,255,0.90)",
+                    boxShadow: "var(--shadow-md)",
+                    background: "var(--orange-pastel)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    gap: "5px",
-                    padding: "0 14px",
-                    height: "42px",
-                    flexShrink: 0,
-                    borderRadius: "var(--r-md)",
-                    border: "none",
-                    background: isValidSpotifyUrl && !playlistLoading
-                      ? "var(--grad-primary)"
-                      : "rgba(0,0,0,0.08)",
-                    color: isValidSpotifyUrl && !playlistLoading ? "#fff" : "var(--text-muted)",
-                    cursor: isValidSpotifyUrl && !playlistLoading ? "pointer" : "not-allowed",
-                    fontSize: "0.80rem",
-                    fontWeight: 700,
-                    transition: "var(--t-fast)",
-                    boxShadow: isValidSpotifyUrl && !playlistLoading
-                      ? "0 4px 14px rgba(255,107,53,0.35)"
-                      : "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (isValidSpotifyUrl && !playlistLoading)
-                      (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0)";
                   }}
                 >
-                  {playlistLoading ? (
-                    <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                  {selectedPlaylistInfo.imageUrl ? (
+                    <img
+                      src={selectedPlaylistInfo.imageUrl}
+                      alt="Playlist cover"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
                   ) : (
-                    <Search size={15} />
+                    <Music2 size={26} style={{ color: "var(--orange-core)" }} />
                   )}
-                  {language === "th" ? "ค้นหา" : "Search"}
-                </button>
-              </div>
-
-              {/* Error */}
-              {playlistError && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "8px",
-                    padding: "10px 14px",
-                    background: "var(--error-light)",
-                    border: "1px solid rgba(239,68,68,0.22)",
-                    borderRadius: "var(--r-md)",
-                    fontSize: "0.80rem",
-                    color: "var(--error)",
-                    fontWeight: 600,
-                    animation: "slideUpFade 0.22s var(--ease-spring) forwards",
-                  }}
-                >
-                  <AlertCircle size={14} style={{ marginTop: "1px", flexShrink: 0 }} />
-                  {playlistError}
                 </div>
-              )}
 
-              {/* ── Playlist Preview Card ── */}
-              {playlistInfo && !playlistError && (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "14px",
-                    padding: "14px 16px",
-                    background: "rgba(255,255,255,0.82)",
-                    backdropFilter: "blur(20px)",
-                    WebkitBackdropFilter: "blur(20px)",
-                    border: "1.5px solid rgba(34,197,94,0.35)",
-                    borderRadius: "var(--r-xl)",
-                    boxShadow: "0 4px 20px rgba(34,197,94,0.12)",
-                    animation: "springPop 0.32s var(--ease-spring) forwards",
-                  }}
-                >
-                  {/* Cover art */}
+                {/* Info */}
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: "var(--r-md)",
+                      fontFamily: "Outfit, sans-serif",
+                      fontSize: "0.95rem",
+                      fontWeight: 900,
+                      color: "var(--text-dark)",
+                      whiteSpace: "nowrap",
                       overflow: "hidden",
-                      flexShrink: 0,
-                      border: "2.5px solid rgba(255,255,255,0.90)",
-                      boxShadow: "var(--shadow-md)",
-                      background: "var(--orange-pastel)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
+                      textOverflow: "ellipsis",
+                      lineHeight: 1.2,
+                      marginBottom: "4px",
                     }}
                   >
-                    {playlistInfo.imageUrl ? (
-                      <img
-                        src={playlistInfo.imageUrl}
-                        alt="Playlist cover"
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    ) : (
-                      <Music2 size={26} style={{ color: "var(--orange-core)" }} />
-                    )}
+                    {selectedPlaylistInfo.name}
                   </div>
-
-                  {/* Info */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    {/* Spotify badge */}
-                    <div
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "4px",
-                        background: "linear-gradient(135deg,#1DB954,#17a74a)",
-                        color: "#fff",
-                        borderRadius: "var(--r-full)",
-                        padding: "2px 8px",
-                        fontSize: "0.60rem",
-                        fontWeight: 800,
-                        letterSpacing: "0.05em",
-                        marginBottom: "5px",
-                      }}
-                    >
-                      ♪ Spotify
-                    </div>
-                    {/* Playlist name */}
-                    <div
-                      style={{
-                        fontFamily: "Outfit, sans-serif",
-                        fontSize: "0.95rem",
-                        fontWeight: 900,
-                        color: "var(--text-dark)",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        lineHeight: 1.2,
-                        marginBottom: "4px",
-                      }}
-                    >
-                      {playlistInfo.name}
-                    </div>
-                    {/* Track count */}
-                    <div
-                      style={{
-                        fontSize: "0.78rem",
-                        fontWeight: 700,
-                        color: "var(--text-muted)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "5px",
-                      }}
-                    >
-                      <span>🎵</span>
-                      <span>{playlistInfo.trackCount}</span>
-                      {playlistInfo.trackCount > 0 && numSongs > playlistInfo.trackCount && (
-                        <span style={{ color: "var(--warning)", fontWeight: 700 }}>
-                          · {language === "th" ? "น้อยกว่าที่ตั้งไว้" : "less than requested"} ({numSongs})
-                        </span>
-                      )}
-                    </div>
+                  <div
+                    style={{
+                      fontSize: "0.78rem",
+                      fontWeight: 700,
+                      color: "var(--text-muted)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "5px",
+                    }}
+                  >
+                    <span>🎵</span>
+                    <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
                   </div>
+                </div>
 
-                  {/* Green check */}
-                  <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
+                <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                {language === "th" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "No playlist selected"}
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                playClickSFX();
+                setTempSelectedUrl(selectedPlaylistInfo?.url || (presetPlaylists[0]?.url || ""));
+                setIsModalOpen(true);
+              }}
+              className="btn btn-primary ripple"
+              style={{
+                width: "100%",
+                padding: "10px 16px",
+                borderRadius: "12px",
+                fontSize: "0.88rem",
+                fontWeight: 800,
+                cursor: "pointer",
+                background: "var(--grad-primary)",
+                border: "none",
+                color: "#fff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px"
+              }}
+            >
+              🎵 {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+            </button>
+          </div>
+
+          {/* ── Custom Playlist URL Section ── */}
+          <div className="setup-section-card">
+            {sectionHeader("🔗", language === "th" ? "หรือ ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Or use custom playlist URL")}
+            <div style={{ position: "relative", width: "100%" }}>
+              <input
+                type="text"
+                placeholder="https://open.spotify.com/playlist/..."
+                value={customUrl}
+                onChange={(e) => handleCustomUrlChange(e.target.value)}
+                className="input-text"
+                style={{
+                  width: "100%",
+                  fontSize: "0.85rem",
+                  paddingRight: customLoading ? "38px" : "14px"
+                }}
+              />
+              {customLoading && (
+                <div
+                  style={{
+                    position: "absolute",
+                    right: "12px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    display: "flex",
+                    alignItems: "center"
+                  }}
+                >
+                  <Loader2 size={16} style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
                 </div>
               )}
-
-              <p
-                style={{
-                  fontSize: "0.72rem",
-                  color: "var(--text-muted)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "5px",
-                  fontWeight: 600,
-                }}
-              >
-                <Info size={11} />
-                {language === "th"
-                  ? "ตั้ง playlist เป็น Public ก่อนนะ! แล้ว กด Enter หรือปุ่ม ค้นหา"
-                  : "Make sure your playlist is set to Public! Then press Enter or Search."}
-              </p>
             </div>
-          )}
-
-          {/* ── Genre picker ── */}
-          {!usePlaylist && (
-            <div className="setup-section-card">
-              {sectionHeader("🎸", language === "th" ? "เลือกแนวเพลง" : "Select Music Genres")}
-              <div className="genre-grid">
-                {GENRES.map((genre) => (
-                  <button
-                    key={genre}
-                    onClick={() => { playClickSFX(); toggleGenre(genre); }}
-                    className={`genre-btn ${selectedGenres.includes(genre) ? "selected" : ""}`}
-                  >
-                    {genre}
-                  </button>
-                ))}
+            {customError && (
+              <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                <AlertCircle size={12} />
+                {customError}
               </div>
-            </div>
-          )}
+            )}
+            <p style={{ fontSize: "0.70rem", color: "var(--text-muted)", marginTop: "6px", display: "flex", alignItems: "center", gap: "4px", fontWeight: 600 }}>
+              <Info size={11} />
+              {language === "th"
+                ? "ตั้ง playlist เป็น Public ก่อนนะ! รองรับเฉพาะ Spotify Playlist เท่านั้น"
+                : "Make sure your playlist is set to Public! Only Spotify Playlists are supported."}
+            </p>
+          </div>
 
           {/* ── Settings grid ── */}
           <div className="setup-section-card">
@@ -481,7 +266,7 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                 <label className="modal-label">{translations[language].songCount}</label>
                 <div className="setup-option-selector">
                   {[5, 10, 20].map((num) => {
-                    const isDisabled = usePlaylist && playlistInfo !== null && playlistInfo.trackCount < num;
+                    const isDisabled = selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount < num;
                     return (
                       <button
                         key={num}
@@ -539,6 +324,183 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
           {translations[language].startGame}
         </button>
       </div>
+
+      {/* Playlist Selector Modal */}
+      {isModalOpen && (
+        <div
+          className="modal-overlay"
+          style={{
+            zIndex: 1000,
+            background: "rgba(0, 0, 0, 0.4)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }}
+        >
+          <div
+            className="card animate-popup-bounce"
+            style={{
+              width: "90%",
+              maxWidth: "460px",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              background: "rgba(255, 255, 255, 0.95)",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.3rem" }}>🎵</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                  {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  playClickSFX();
+                  setIsModalOpen(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: "4px"
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable list */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                maxHeight: "320px",
+                overflowY: "auto",
+                paddingRight: "6px"
+              }}
+            >
+              {presetPlaylists.map((pl) => {
+                const isSelected = tempSelectedUrl === pl.url;
+                return (
+                  <div
+                    key={pl.url}
+                    onClick={() => {
+                      playClickSFX();
+                      setTempSelectedUrl(pl.url);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "10px 14px",
+                      borderRadius: "14px",
+                      border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
+                      background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
+                      cursor: "pointer",
+                      transition: "var(--t-fast)",
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        border: "1.5px solid rgba(255,255,255,0.90)",
+                        background: "var(--orange-pastel)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      {pl.imageUrl ? (
+                        <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {pl.name}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                        {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
+                      </div>
+                    </div>
+
+                    {/* Radio Button */}
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        border: "2px solid var(--orange-core)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0
+                      }}
+                    >
+                      {isSelected && (
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--orange-core)" }} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <button
+                onClick={() => {
+                  playClickSFX();
+                  setIsModalOpen(false);
+                }}
+                className="btn ripple"
+                style={{
+                  flex: 1,
+                  background: "rgba(0, 0, 0, 0.05)",
+                  border: "1px solid rgba(0,0,0,0.1)",
+                  color: "var(--text-muted)",
+                  padding: "10px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                }}
+              >
+                {language === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <button
+                onClick={() => {
+                  playClickSFX();
+                  setSelectedPlaylist(tempSelectedUrl);
+                  setCustomUrl("");
+                  setCustomError(null);
+                  setIsModalOpen(false);
+                }}
+                className="btn btn-primary ripple"
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                }}
+              >
+                {language === "th" ? "ยืนยันการเลือก" : "Confirm Selection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -74,3 +74,22 @@ const IssueReportSchema: Schema = new Schema({
 });
 
 export const IssueReport = mongoose.model<IIssueReport>("IssueReport", IssueReportSchema);
+
+// 4. Preset Playlist Schema
+export interface IPresetPlaylist extends Document {
+  name: string;
+  url: string;
+  imageUrl: string;
+  trackCount: number;
+  isDefault: boolean;
+}
+
+const PresetPlaylistSchema: Schema = new Schema({
+  name: { type: String, required: true },
+  url: { type: String, required: true, unique: true },
+  imageUrl: { type: String, default: "" },
+  trackCount: { type: Number, required: true, default: 0 },
+  isDefault: { type: Boolean, default: false }
+});
+
+export const PresetPlaylist = mongoose.model<IPresetPlaylist>("PresetPlaylist", PresetPlaylistSchema);

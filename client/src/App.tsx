@@ -26,7 +26,12 @@ export function App() {
     language,
     setLanguage,
     countdown,
+    fetchPresetPlaylists,
   } = useGameStore();
+
+  useEffect(() => {
+    fetchPresetPlaylists();
+  }, []);
 
   const {
     isPlaying,

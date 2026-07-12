@@ -117,6 +117,10 @@ interface GameState {
   saveHighScore: (score: number, songCountOverride?: number) => Promise<void>;
   highScoreSaved: boolean;
   countdown: number | null;
+  presetPlaylists: Array<{ name: string; url: string; imageUrl: string; trackCount: number; isDefault: boolean }>;
+  selectedPlaylistInfo: { name: string; imageUrl: string | null; trackCount: number } | null;
+  fetchPresetPlaylists: () => Promise<void>;
+  setSelectedPlaylist: (url: string) => Promise<void>;
 
   // Singleplayer actions
   startSingleplayer: (settings: GameSettings) => Promise<void>;
@@ -175,6 +179,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   leaderboard: [],
   highScoreSaved: false,
   countdown: null,
+  presetPlaylists: [],
+  selectedPlaylistInfo: null,
 
   language: getBrowserLanguage(),
   setLanguage: (lang) => {
@@ -449,7 +455,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   revealSingleplayerRound: async () => {
-    const { rounds, currentRoundIdx, selectedChoiceId, settings, timer, singlePlayerScore, status, loading } = get();
+    const { rounds, currentRoundIdx, selectedChoiceId, settings, timer, status, loading } = get();
     if (status === "reveal" || loading) return;
     
     const currentRound = rounds[currentRoundIdx];
@@ -570,6 +576,72 @@ export const useGameStore = create<GameState>((set, get) => ({
       singlePlayerLastScoreAdded: 0,
       highScoreSaved: false
     });
+  },
+
+  fetchPresetPlaylists: async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/playlists`);
+      set({ presetPlaylists: res.data });
+      
+      // Auto-select default if none selected or if selected is not valid
+      const defaultPl = res.data.find((p: any) => p.isDefault) || res.data[0];
+      if (defaultPl && !get().selectedPlaylistInfo) {
+        set({
+          selectedPlaylistInfo: {
+            name: defaultPl.name,
+            imageUrl: defaultPl.imageUrl,
+            trackCount: defaultPl.trackCount
+          }
+        });
+      }
+    } catch (err) {
+      console.error("[Presets] Error fetching presets:", err);
+    }
+  },
+
+  setSelectedPlaylist: async (url: string) => {
+    // If it's a URL in our presets, use stored metadata
+    const presets = get().presetPlaylists;
+    const matched = presets.find((p) => p.url === url || p.url.includes(url) || url.includes(p.url));
+    if (matched) {
+      set({
+        selectedPlaylistInfo: {
+          name: matched.name,
+          imageUrl: matched.imageUrl,
+          trackCount: matched.trackCount
+        }
+      });
+      return;
+    }
+
+    // Otherwise, it's a custom URL. Let's try to query /api/playlist-info from server
+    if (!url.trim()) {
+      set({ selectedPlaylistInfo: null });
+      return;
+    }
+
+    try {
+      const res = await axios.get(`${API_URL}/api/playlist-info`, {
+        params: { url }
+      });
+      set({
+        selectedPlaylistInfo: {
+          name: res.data.name,
+          imageUrl: res.data.imageUrl,
+          trackCount: res.data.trackCount
+        }
+      });
+    } catch (err) {
+      console.warn("[Presets] Error resolving playlist URL:", err);
+      // Fallback
+      set({
+        selectedPlaylistInfo: {
+          name: "Custom Spotify Playlist",
+          imageUrl: null,
+          trackCount: 0
+        }
+      });
+    }
   }
 }));
 export default useGameStore;

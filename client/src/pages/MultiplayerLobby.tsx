@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameStore, GameSettings } from "../store/gameStore";
-import { ArrowLeft, Play, Copy, Send, Check, User, Lock, Link as LinkIcon, X } from "lucide-react";
+import { ArrowLeft, Play, Copy, Send, Check, User, Lock, X, Music2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { translations } from "../utils/translations";
 
 interface MultiplayerLobbyProps {
   onBack: () => void;
 }
-
-const GENRES = ["Pop", "Rock", "Anime", "Thai", "K-pop", "Game", "Movie"];
 
 export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const {
@@ -26,6 +24,9 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     sendMessage,
     startGame,
     language,
+    presetPlaylists,
+    selectedPlaylistInfo,
+    setSelectedPlaylist,
   } = useGameStore();
 
   const [activeTab, setActiveTab] = useState<"join" | "create">("join");
@@ -39,9 +40,12 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   const [answerDuration, setAnswerDuration] = useState(10);
   const [clipDuration, setClipDuration] = useState(5);
   const [difficulty] = useState<"Easy" | "Normal" | "Hard">("Normal");
-  const [selectedGenres, setSelectedGenres] = useState<string[]>(["Pop"]);
-  const [usePlaylist, setUsePlaylist] = useState<boolean>(false);
-  const [playlistUrl, setPlaylistUrl] = useState<string>("");
+
+  const [customUrl, setCustomUrl] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tempSelectedUrl, setTempSelectedUrl] = useState<string>("");
+  const [customLoading, setCustomLoading] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
 
   // Join Room forms
   const [joinCodeInput, setJoinCodeInput] = useState("");
@@ -67,14 +71,43 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     }
   };
 
+  const handleCustomUrlChange = async (url: string) => {
+    setCustomUrl(url);
+    if (!url.trim()) {
+      setCustomError(null);
+      // Revert to default preset
+      const defaultPl = presetPlaylists.find((p) => p.isDefault) || presetPlaylists[0];
+      if (defaultPl) {
+        setSelectedPlaylist(defaultPl.url);
+      }
+      return;
+    }
+
+    if (!url.toLowerCase().includes("spotify")) {
+      setCustomError(language === "th" ? "กรุณาใส่ลิงก์ Spotify Playlist ที่ถูกต้อง" : "Please enter a valid Spotify Playlist URL");
+      return;
+    }
+
+    setCustomLoading(true);
+    setCustomError(null);
+    try {
+      await setSelectedPlaylist(url);
+    } catch (err) {
+      setCustomError(language === "th" ? "ดึงข้อมูลล้มเหลว กรุณาตรวจสอบว่าเพลย์ลิสต์เป็น Public" : "Failed to fetch playlist. Make sure it is public.");
+    } finally {
+      setCustomLoading(false);
+    }
+  };
+
   const handleCreate = () => {
+    const activeUrl = customUrl.trim() || selectedPlaylistInfo?.url || (presetPlaylists.find((p) => p.isDefault)?.url || "");
     const gameSettings: GameSettings = {
       numSongs,
       answerDuration,
       clipDuration,
-      genres: usePlaylist ? [] : selectedGenres,
+      genres: [],
       difficulty,
-      playlistUrl: usePlaylist && playlistUrl.trim() ? playlistUrl.trim() : undefined,
+      playlistUrl: activeUrl || undefined,
     };
     updateSettings(gameSettings);
     createRoom(newRoomName, usePassword && newPassword ? newPassword : undefined, maxPlayers);
@@ -88,8 +121,6 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       passwordOverride || undefined
     );
     if (!success) {
-      // If failed, it might be a password-protected room
-      // Show password modal so user can enter the password
       setShowPasswordModal(true);
     }
   };
@@ -126,15 +157,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     }
   };
 
-  const toggleGenre = (genre: string) => {
-    if (selectedGenres.includes(genre)) {
-      if (selectedGenres.length > 1) {
-        setSelectedGenres(selectedGenres.filter((g) => g !== genre));
-      }
-    } else {
-      setSelectedGenres([...selectedGenres, genre]);
-    }
-  };
+  const canCreate = !customLoading && selectedPlaylistInfo !== null && selectedPlaylistInfo.trackCount >= 5;
 
   // If NOT in a room, show the Join/Create lobby panels
   if (!roomCode) {
@@ -245,54 +268,146 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                   )}
                 </div>
 
-                {/* Music Source Card */}
+                {/* Playlist Selection Card */}
                 <div className="setup-section-card">
-                  {sectionHeader("🎵", language === "th" ? "แหล่งเพลง" : "Music Source")}
-                  <div className="toggle-row" style={{ margin: 0, padding: "12px" }}>
-                    <div>
-                      <h4 style={{ fontWeight: 700, fontSize: "0.85rem" }}>Spotify Playlist</h4>
-                      <p style={{ fontSize: "0.7rem", color: "var(--text-muted)" }}>
-                        {language === "th" ? "เล่นจากเพลย์ลิสต์ Spotify" : "Play with custom Spotify playlist"}
-                      </p>
-                    </div>
-                    <label className="toggle-switch">
-                      <input
-                        type="checkbox"
-                        checked={usePlaylist}
-                        onChange={(e) => setUsePlaylist(e.target.checked)}
-                      />
-                      <span className="toggle-slider"></span>
-                    </label>
-                  </div>
+                  {sectionHeader("🎵", language === "th" ? "หมวดเพลง / เพลย์ลิสต์" : "Music Category / Playlist")}
+                  
+                  {selectedPlaylistInfo ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "14px",
+                        padding: "14px 16px",
+                        background: "rgba(255,255,255,0.82)",
+                        backdropFilter: "blur(20px)",
+                        WebkitBackdropFilter: "blur(20px)",
+                        border: "1.5px solid rgba(255, 107, 53, 0.20)",
+                        borderRadius: "var(--r-xl)",
+                        boxShadow: "var(--shadow-sm)",
+                        marginBottom: "12px",
+                        animation: "springPop 0.32s var(--ease-spring) forwards",
+                      }}
+                    >
+                      {/* Cover art */}
+                      <div
+                        style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: "var(--r-md)",
+                          overflow: "hidden",
+                          flexShrink: 0,
+                          border: "2px solid rgba(255,255,255,0.90)",
+                          boxShadow: "var(--shadow-md)",
+                          background: "var(--orange-pastel)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                        }}
+                      >
+                        {selectedPlaylistInfo.imageUrl ? (
+                          <img
+                            src={selectedPlaylistInfo.imageUrl}
+                            alt="Playlist cover"
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        ) : (
+                          <Music2 size={26} style={{ color: "var(--orange-core)" }} />
+                        )}
+                      </div>
 
-                  {usePlaylist ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                      <label className="modal-label" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-                        <LinkIcon size={12} /> {language === "th" ? "ลิงก์เพลย์ลิสต์" : "Playlist Link"}
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="https://open.spotify.com/playlist/..."
-                        value={playlistUrl}
-                        onChange={(e) => setPlaylistUrl(e.target.value)}
-                        className="input-text"
-                      />
+                      {/* Info */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontFamily: "Outfit, sans-serif",
+                            fontSize: "0.95rem",
+                            fontWeight: 900,
+                            color: "var(--text-dark)",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            lineHeight: 1.2,
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {selectedPlaylistInfo.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "0.78rem",
+                            fontWeight: 700,
+                            color: "var(--text-muted)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "5px",
+                          }}
+                        >
+                          <span>🎵</span>
+                          <span>{selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                        </div>
+                      </div>
+
+                      <CheckCircle2 size={22} style={{ color: "var(--success)", flexShrink: 0 }} />
                     </div>
                   ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                      <label className="modal-label">{language === "th" ? "เลือกแนวเพลง" : "Genres"}</label>
-                      <div className="genre-grid">
-                        {GENRES.map((genre) => (
-                          <button
-                            key={genre}
-                            onClick={() => toggleGenre(genre)}
-                            className={`genre-btn ${selectedGenres.includes(genre) ? "selected" : ""}`}
-                            style={{ padding: "8px 12px", fontSize: "0.85rem" }}
-                          >
-                            {genre}
-                          </button>
-                        ))}
+                    <div style={{ textAlign: "center", padding: "16px", color: "var(--text-muted)", fontSize: "0.85rem" }}>
+                      {language === "th" ? "ยังไม่ได้เลือกเพลย์ลิสต์" : "No playlist selected"}
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setTempSelectedUrl(selectedPlaylistInfo?.url || (presetPlaylists[0]?.url || ""));
+                      setIsModalOpen(true);
+                    }}
+                    className="btn btn-primary ripple"
+                    style={{
+                      width: "100%",
+                      padding: "10px 16px",
+                      borderRadius: "12px",
+                      fontSize: "0.88rem",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      background: "var(--grad-primary)",
+                      border: "none",
+                      color: "#fff",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px"
+                    }}
+                  >
+                    🎵 {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                  </button>
+                </div>
+
+                {/* Custom URL Section */}
+                <div className="setup-section-card">
+                  {sectionHeader("🔗", language === "th" ? "หรือ ใส่ลิงก์เพลย์ลิสต์ของคุณเอง" : "Or use custom playlist URL")}
+                  <div style={{ position: "relative", width: "100%" }}>
+                    <input
+                      type="text"
+                      placeholder="https://open.spotify.com/playlist/..."
+                      value={customUrl}
+                      onChange={(e) => handleCustomUrlChange(e.target.value)}
+                      className="input-text"
+                      style={{
+                        width: "100%",
+                        fontSize: "0.85rem",
+                        paddingRight: customLoading ? "38px" : "14px"
+                      }}
+                    />
+                    {customLoading && (
+                      <div style={{ position: "absolute", right: "12px", top: "50%", transform: "translateY(-50%)", display: "flex", alignItems: "center" }}>
+                        <Loader2 size={16} style={{ color: "var(--orange-core)", animation: "spin 1s linear infinite" }} />
                       </div>
+                    )}
+                  </div>
+                  {customError && (
+                    <div style={{ color: "var(--error)", fontSize: "0.78rem", fontWeight: 700, marginTop: "6px", display: "flex", alignItems: "center", gap: "4px" }}>
+                      <AlertCircle size={12} />
+                      {customError}
                     </div>
                   )}
                 </div>
@@ -346,7 +461,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
                 <button
                   onClick={handleCreate}
-                  disabled={usePlaylist && !playlistUrl.trim()}
+                  disabled={!canCreate}
                   className="btn btn-primary ripple"
                   style={{ marginTop: "4px" }}
                 >
@@ -597,6 +712,179 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           )}
         </div>
       </div>
+
+      {/* Playlist Selector Modal */}
+      {isModalOpen && (
+        <div
+          className="modal-overlay"
+          style={{
+            zIndex: 1000,
+            background: "rgba(0, 0, 0, 0.4)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }}
+        >
+          <div
+            className="card animate-popup-bounce"
+            style={{
+              width: "95%",
+              maxWidth: "460px",
+              padding: "24px",
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+              background: "rgba(255, 255, 255, 0.95)",
+              boxShadow: "var(--shadow-lg)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.3rem" }}>🎵</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                  {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--text-muted)",
+                  padding: "4px"
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Scrollable list */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                maxHeight: "320px",
+                overflowY: "auto",
+                paddingRight: "6px"
+              }}
+            >
+              {presetPlaylists.map((pl) => {
+                const isSelected = tempSelectedUrl === pl.url;
+                return (
+                  <div
+                    key={pl.url}
+                    onClick={() => {
+                      setTempSelectedUrl(pl.url);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "12px",
+                      padding: "10px 14px",
+                      borderRadius: "14px",
+                      border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
+                      background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
+                      cursor: "pointer",
+                      transition: "var(--t-fast)",
+                    }}
+                  >
+                    {/* Thumbnail */}
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: "10px",
+                        overflow: "hidden",
+                        flexShrink: 0,
+                        border: "1.5px solid rgba(255,255,255,0.90)",
+                        background: "var(--orange-pastel)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center"
+                      }}
+                    >
+                      {pl.imageUrl ? (
+                        <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.88rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {pl.name}
+                      </div>
+                      <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                        {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
+                      </div>
+                    </div>
+
+                    {/* Radio Button */}
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: "50%",
+                        border: "2px solid var(--orange-core)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0
+                      }}
+                    >
+                      {isSelected && (
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "var(--orange-core)" }} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Footer Buttons */}
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <button
+                onClick={() => {
+                  setIsModalOpen(false);
+                }}
+                className="btn ripple"
+                style={{
+                  flex: 1,
+                  background: "rgba(0, 0, 0, 0.05)",
+                  border: "1px solid rgba(0,0,0,0.1)",
+                  color: "var(--text-muted)",
+                  padding: "10px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                }}
+              >
+                {language === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectedPlaylist(tempSelectedUrl);
+                  setCustomUrl("");
+                  setCustomError(null);
+                  setIsModalOpen(false);
+                }}
+                className="btn btn-primary ripple"
+                style={{
+                  flex: 1,
+                  padding: "10px",
+                  borderRadius: "12px",
+                  fontWeight: 800,
+                }}
+              >
+                {language === "th" ? "ยืนยันการเลือก" : "Confirm Selection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
