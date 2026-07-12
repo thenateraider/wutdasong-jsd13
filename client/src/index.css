@@ -2144,3 +2144,86 @@ input:checked+.toggle-slider::before {
     transform: scale(1);
   }
 }
+
+/* ── Game Layout Wrapper (PC & Mobile Responsiveness) ── */
+.game-layout-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.game-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.game-right-col {
+  width: 100%;
+}
+
+.game-scoreboard-card {
+  padding: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1.5px solid rgba(255, 107, 53, 0.15);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+}
+
+@media (max-width: 767px) {
+  .game-layout-wrapper {
+    gap: 6px;
+  }
+  .game-left-col {
+    gap: 6px;
+  }
+  .game-scoreboard-card {
+    padding: 10px 12px;
+    max-height: 120px;
+    border-radius: 16px;
+  }
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    max-width: 900px !important;
+    height: 100vh;
+    height: 100dvh;
+    justify-content: center;
+  }
+
+  .game-layout-wrapper.has-sidebar {
+    display: flex;
+    flex-direction: row !important;
+    gap: 20px;
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .game-layout-wrapper.has-sidebar .game-left-col {
+    flex: 1.25;
+  }
+
+  .game-layout-wrapper.has-sidebar .game-right-col {
+    flex: 0.75;
+    position: sticky;
+    top: 20px;
+  }
+
+  .game-layout-wrapper:not(.has-sidebar) .game-left-col {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .game-scoreboard-card {
+    max-height: 480px;
+  }
+}

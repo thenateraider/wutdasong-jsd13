@@ -80,14 +80,21 @@ export function GameScreen({
     if (!showRankings) return;
     setRankingsCountdown(5);
     const interval = setInterval(() => {
-      setRankingsCountdown(prev => Math.max(0, prev - 1));
+      setRankingsCountdown(prev => {
+        const next = Math.max(0, prev - 1);
+        if (next === 0) {
+          stopAudioClip(); // Explicitly stop the audio when countdown finishes
+        }
+        return next;
+      });
     }, 1000);
     return () => clearInterval(interval);
   }, [showRankings]);
 
   useEffect(() => {
     if (!currentRound) return;
-    playAudioClip(currentRound.previewUrl, settings.answerDuration + 5);
+    // Play audio longer (answerDuration + 25 seconds) so it keeps playing during reveal and ranking screens
+    playAudioClip(currentRound.previewUrl, settings.answerDuration + 25);
     return () => { stopAudioClip(); };
   }, [currentRoundIdx]);
 
@@ -203,9 +210,12 @@ export function GameScreen({
 
   const CHOICE_LETTERS = ["A", "B", "C", "D", "E"];
 
+  const hasSidebar = mode === "multi";
+
   return (
     <div className="page-container">
-      <div className="split-card-container" key={currentRoundIdx}>
+      <div className={`game-layout-wrapper ${hasSidebar ? "has-sidebar" : ""}`} key={currentRoundIdx}>
+        <div className="game-left-col">
 
         {/* ── Player Header Card (Structure for Multiplayer preview) ── */}
         <div
@@ -286,82 +296,50 @@ export function GameScreen({
                   {currentRoundIdx + 1}
                 </span>
                 <span style={{ fontSize: "0.95rem", color: "var(--text-muted)" }}>
-                  /{rounds.length}
+                  /{settings.numSongs || rounds.length}
                 </span>
               </span>
             </div>
           </div>
 
           {/* Score Card */}
-          <div className="mini-card" style={{ padding: "14px 20px", borderRadius: "24px", gap: "14px", justifyContent: mode === "single" ? "flex-start" : "center", minHeight: "80px" }}>
-            {mode === "single" ? (
-              <>
-                {/* Emoji badge */}
-                <div
-                  style={{
-                    width: "46px",
-                    height: "46px",
-                    borderRadius: "14px",
-                    background: "rgba(255, 191, 0, 0.12)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "1.35rem",
-                    flexShrink: 0,
-                  }}
-                >
-                  ⭐
-                </div>
-                {/* Playful Text layout */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "1px" }}>
-                  <span style={{ color: "var(--text-muted)", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                    {translations[language].scoreText}
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "Outfit, sans-serif",
-                      fontSize: "1.55rem",
-                      fontWeight: 950,
-                      lineHeight: 1.1,
-                      background: "var(--grad-text)",
-                      WebkitBackgroundClip: "text",
-                      WebkitTextFillColor: "transparent",
-                      backgroundClip: "text",
-                    }}
-                  >
-                    {useGameStore.getState().singlePlayerScore}
-                  </span>
-                </div>
-              </>
-            ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", width: "100%", justifyContent: "center" }}>
-                {players.slice(0, 4).map((p) => {
-                  const hasAnswered = p.selectedChoiceId !== null;
-                  return (
-                    <div
-                      key={p.id}
-                      style={{
-                        fontSize: "0.76rem",
-                        padding: "4px 8px",
-                        borderRadius: "10px",
-                        border: "1px solid rgba(255,107,53,0.20)",
-                        backgroundColor: hasAnswered ? "rgba(255,107,53,0.12)" : "rgba(255,255,255,0.70)",
-                        color: hasAnswered ? "var(--orange-core)" : "var(--text-muted)",
-                        fontWeight: 900,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <span>{p.avatar}</span>
-                      <span style={{ color: "var(--orange-core)" }}>
-                        {p.score}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+          <div className="mini-card" style={{ padding: "14px 20px", borderRadius: "24px", gap: "14px", justifyContent: "flex-start", minHeight: "80px" }}>
+            {/* Emoji badge */}
+            <div
+              style={{
+                width: "46px",
+                height: "46px",
+                borderRadius: "14px",
+                background: "rgba(255, 191, 0, 0.12)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "1.35rem",
+                flexShrink: 0,
+              }}
+            >
+              ⭐
+            </div>
+            {/* Playful Text layout */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: "1px" }}>
+              <span style={{ color: "var(--text-muted)", fontSize: "0.74rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                {translations[language].scoreText}
+              </span>
+              <span
+                style={{
+                  fontFamily: "Outfit, sans-serif",
+                  fontSize: "1.55rem",
+                  fontWeight: 950,
+                  lineHeight: 1.1,
+                  background: "var(--grad-text)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  backgroundClip: "text",
+                }}
+              >
+                {mode === "single" ? useGameStore.getState().singlePlayerScore : (me ? me.score : 0)}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -469,113 +447,102 @@ export function GameScreen({
           })}
         </div>
 
+        </div> {/* Close game-left-col */}
+
         {/* ── Row 4: Scoreboard Card (Multiplayer only) ── */}
         {mode === "multi" && (
-          <div
-            className="setup-section-card"
-            style={{
-              marginTop: "16px",
-              padding: "16px",
-              width: "100%",
-              boxSizing: "border-box",
-              borderRadius: "20px",
-              background: "rgba(255, 255, 255, 0.85)",
-              border: "1.5px solid rgba(255, 107, 53, 0.15)",
-              boxShadow: "var(--shadow-sm)",
-              maxHeight: "220px",
-              display: "flex",
-              flexDirection: "column",
-              gap: "8px",
-            }}
-          >
-            {/* Header */}
-            <div
-              style={{
-                fontFamily: "Outfit, sans-serif",
-                fontSize: "1rem",
-                fontWeight: 900,
-                color: "var(--text-dark)",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                borderBottom: "1.5px solid rgba(0,0,0,0.06)",
-                paddingBottom: "6px",
-              }}
-            >
-              <span>📊</span>
-              <span>{language === "th" ? "กระดานคะแนน" : "Scoreboard"}</span>
-            </div>
+          <div className="game-right-col">
+            <div className="game-scoreboard-card">
+              {/* Header */}
+              <div
+                style={{
+                  fontFamily: "Outfit, sans-serif",
+                  fontSize: "1rem",
+                  fontWeight: 900,
+                  color: "var(--text-dark)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  borderBottom: "1.5px solid rgba(0,0,0,0.06)",
+                  paddingBottom: "6px",
+                }}
+              >
+                <span>📊</span>
+                <span>{language === "th" ? "กระดานคะแนน" : "Scoreboard"}</span>
+              </div>
 
-            {/* Scrollable List container */}
-            <div
-              style={{
-                overflowY: "auto",
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                gap: "6px",
-                paddingRight: "4px",
-              }}
-            >
-              {(() => {
-                const sorted = [...players].sort((a, b) => b.score - a.score);
-                const top3 = sorted.slice(0, 3);
+              {/* Scrollable List container */}
+              <div
+                style={{
+                  overflowY: "auto",
+                  flex: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "6px",
+                  paddingRight: "4px",
+                }}
+              >
+                {(() => {
+                  const sorted = [...players].sort((a, b) => b.score - a.score);
+                  const top3 = sorted.slice(0, 3);
 
-                return (
-                  <>
-                    {/* Top 3 list (Larger, with avatars) */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                      {top3.map((p, idx) => {
-                        const rankLabel = idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd";
-                        return (
-                          <div
-                            key={p.id}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              padding: "6px 12px",
-                              borderRadius: "12px",
-                              background: idx === 0
-                                ? "rgba(255, 215, 0, 0.12)"
-                                : idx === 1
-                                  ? "rgba(192, 192, 192, 0.12)"
-                                  : "rgba(205, 127, 50, 0.12)",
-                              border: `1px solid ${idx === 0
-                                  ? "rgba(255, 215, 0, 0.3)"
+                  return (
+                    <>
+                      {/* Top 3 list (Larger, with avatars) */}
+                      <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                        {top3.map((p, idx) => {
+                          const rankLabel = idx === 0 ? "1st" : idx === 1 ? "2nd" : "3rd";
+                          return (
+                            <div
+                              key={p.id}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "6px 12px",
+                                borderRadius: "12px",
+                                background: idx === 0
+                                  ? "rgba(255, 215, 0, 0.12)"
                                   : idx === 1
-                                    ? "rgba(192, 192, 192, 0.3)"
-                                    : "rgba(205, 127, 50, 0.3)"
-                                }`,
-                            }}
-                          >
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{rankLabel}</span>
-                              <span style={{ fontSize: "1.2rem" }}>{p.avatar}</span>
-                              <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "var(--text-dark)" }}>
-                                {p.name}
-                              </span>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                              {status === "playing" && p.streak && p.streak >= 2 && (
-                                <span style={{ fontSize: "0.75rem", fontWeight: 900, color: "#FF9F1C" }}>
-                                  🔥 {p.streak}x
+                                    ? "rgba(192, 192, 192, 0.12)"
+                                    : "rgba(205, 127, 50, 0.12)",
+                                border: `1px solid ${idx === 0
+                                    ? "rgba(255, 215, 0, 0.3)"
+                                    : idx === 1
+                                      ? "rgba(192, 192, 192, 0.3)"
+                                      : "rgba(205, 127, 50, 0.3)"
+                                  }`,
+                              }}
+                            >
+                              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                <span style={{ fontSize: "1.1rem", fontWeight: "bold" }}>{rankLabel}</span>
+                                <span style={{ fontSize: "1.2rem" }}>{p.avatar}</span>
+                                <span style={{ fontSize: "0.95rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                                  {p.name}
                                 </span>
-                              )}
-                              <span style={{ fontSize: "1.05rem", fontWeight: 950, color: "var(--orange-core)" }}>
-                                {p.score}
-                              </span>
+                              </div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                {status === "playing" && p.streak && p.streak >= 2 && (
+                                  <span style={{ fontSize: "0.75rem", fontWeight: 900, color: "#FF9F1C" }}>
+                                    🔥 {p.streak}x
+                                  </span>
+                                )}
+                                <span style={{ fontSize: "1.05rem", fontWeight: 950, color: "var(--orange-core)" }}>
+                                  {p.score}
+                                </span>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                );
-              })()}
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         )}
+      </div>
       </div>
 
       {/* ── Reveal Overlay (first 4s) ── */}
@@ -916,7 +883,7 @@ export function GameScreen({
                   strokeDashoffset={188.5 - (rankingsCountdown / 5) * 188.5}
                 />
               </svg>
-              <span className="timer-text" style={{ fontSize: "1.1rem" }}>
+              <span className="timer-text" style={{ fontSize: "1.1rem", color: "#FFFFFF" }}>
                 {rankingsCountdown}
               </span>
             </div>
