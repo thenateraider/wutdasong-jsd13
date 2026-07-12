@@ -484,11 +484,11 @@ export function GameScreen({
               >
                 {(() => {
                   const sorted = [...players].sort((a, b) => b.score - a.score);
-                  const maxScore = Math.max(...players.map((p) => p.score), 1);
+                  const maxScore = Math.max(...players.map((p) => p.score || 0), 1);
 
-                  return sorted.map((p) => {
+                  return sorted.map((p, idx) => {
                     const isMe = p.id === useGameStore.getState().socket?.id;
-                    const barWidth = Math.max(5, (p.score / maxScore) * 100);
+                    const barWidth = p.score > 0 ? (p.score / maxScore) * 100 : 0;
 
                     return (
                       <div
@@ -496,23 +496,37 @@ export function GameScreen({
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "8px",
+                          gap: "6px",
                           width: "100%",
                           background: isMe ? "rgba(255, 107, 53, 0.08)" : "transparent",
-                          padding: isMe ? "4px 8px" : "2px 8px",
+                          padding: isMe ? "4px 6px" : "2px 6px",
                           borderRadius: "8px",
                         }}
                       >
+                        {/* Rank Badge */}
+                        <span
+                          style={{
+                            fontSize: "0.72rem",
+                            fontWeight: 900,
+                            color: idx === 0 ? "#F59E0B" : idx === 1 ? "#94A3B8" : idx === 2 ? "#B45309" : "var(--text-muted)",
+                            width: "22px",
+                            textAlign: "center",
+                            flexShrink: 0,
+                          }}
+                        >
+                          {idx === 0 ? "1st" : idx === 1 ? "2nd" : idx === 2 ? "3rd" : `#${idx + 1}`}
+                        </span>
+
                         {/* Emoji Avatar */}
-                        <span style={{ fontSize: "1.1rem", flexShrink: 0 }}>{p.avatar}</span>
+                        <span style={{ fontSize: "1.05rem", flexShrink: 0 }}>{p.avatar}</span>
                         
                         {/* Player Name */}
                         <span
                           style={{
-                            fontWeight: 800,
-                            fontSize: "0.85rem",
+                            fontWeight: 850,
+                            fontSize: "0.8rem",
                             color: "var(--text-dark)",
-                            width: "70px",
+                            width: "65px",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -526,9 +540,9 @@ export function GameScreen({
                         <div
                           style={{
                             flex: 1,
-                            height: "10px",
-                            background: "rgba(255, 107, 53, 0.1)",
-                            borderRadius: "5px",
+                            height: "8px",
+                            background: "rgba(255, 107, 53, 0.08)",
+                            borderRadius: "4px",
                             overflow: "hidden",
                             position: "relative",
                           }}
@@ -540,26 +554,26 @@ export function GameScreen({
                               background: isMe 
                                 ? "linear-gradient(90deg, #FF6B35 0%, #FF9F1C 100%)"
                                 : "linear-gradient(90deg, #FFB347 0%, #FFD580 100%)",
-                              borderRadius: "5px",
+                              borderRadius: "4px",
                               transition: "width 0.4s ease-out",
                             }}
                           />
                         </div>
 
                         {/* Player score and streak combo */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
-                          {status === "playing" && p.streak && p.streak >= 2 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", flexShrink: 0 }}>
+                          {status === "playing" && p.streak !== undefined && p.streak >= 2 ? (
                             <span style={{ fontSize: "0.7rem", fontWeight: 900, color: "#FF9F1C" }} title={`${p.streak} combo`}>
                               🔥
                             </span>
-                          )}
+                          ) : null}
                           <span
                             style={{
                               fontFamily: "Outfit, sans-serif",
                               fontWeight: 950,
-                              fontSize: "0.95rem",
+                              fontSize: "0.88rem",
                               color: "var(--orange-core)",
-                              minWidth: "35px",
+                              minWidth: "30px",
                               textAlign: "right",
                             }}
                           >
@@ -955,11 +969,11 @@ export function GameScreen({
                           {p.name}
                           {isMe && <span style={{ fontSize: "0.65rem", padding: "1px 6px", backgroundColor: "var(--orange-core)", color: "#fff", borderRadius: "4px", marginLeft: "6px" }}>You</span>}
                         </div>
-                        {p.streak && p.streak >= 2 && (
+                        {p.streak !== undefined && p.streak >= 2 ? (
                           <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#FF9F1C" }}>
                             🔥 {p.streak}x combo
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>

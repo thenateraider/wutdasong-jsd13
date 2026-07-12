@@ -2178,7 +2178,12 @@ input:checked+.toggle-slider::before {
   max-height: 220px;
 }
 
-@media (max-width: 767px) {
+@media (max-width: 649px) {
+  .page-container {
+    justify-content: flex-start !important;
+    padding: 10px 12px !important;
+    overflow-y: auto !important;
+  }
   .game-layout-wrapper {
     gap: 6px;
   }
@@ -2186,13 +2191,14 @@ input:checked+.toggle-slider::before {
     gap: 6px;
   }
   .game-scoreboard-card {
-    padding: 10px 12px;
-    max-height: 120px;
-    border-radius: 16px;
+    padding: 8px 10px !important;
+    max-height: 115px !important;
+    border-radius: 14px;
+    gap: 4px !important;
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 650px) {
   .page-container {
     max-width: 900px !important;
     height: 100vh;
