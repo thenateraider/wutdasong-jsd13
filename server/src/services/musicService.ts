@@ -161,6 +161,29 @@ class MusicService {
     }
   }
 
+  // ค้นหาข้อมูลเพลงและปกจาก Deezer API (ฟรี ไม่ต้องใช้ Token)
+  private async searchDeezer(query: string): Promise<Partial<GameTrack> | null> {
+    try {
+      const cleanedQuery = cleanSearchQuery(query);
+      const response = await axios.get("https://api.deezer.com/search", {
+        params: { q: cleanedQuery, limit: 1 },
+      });
+      const track = response.data.data?.[0];
+      if (!track) return null;
+
+      return {
+        title: track.title,
+        artist: track.artist?.name || "Unknown Artist",
+        previewUrl: track.preview || undefined,
+        artworkUrl: track.album?.cover_medium || track.album?.cover_big || "",
+        album: track.album?.title || "Single",
+      };
+    } catch (error: any) {
+      console.warn(`[Deezer] Error searching for "${query}":`, error.message);
+      return null;
+    }
+  }
+
   // Search Spotify Web API for an artist's profile picture
   private async searchSpotifyArtistImage(artistName: string): Promise<string | null> {
     const token = await this.getSpotifyToken();
@@ -278,6 +301,28 @@ class MusicService {
       // ignore
     }
 
+    // 3. ลองค้นหาจาก Deezer
+    try {
+      const response = await axios.get("https://api.deezer.com/search", {
+        params: { q: cleanTitle, limit: 10 },
+      });
+      const results = response.data.data || [];
+      const matched = results.find((r: any) => {
+        if (!r.artist?.name) return false;
+        const normalizedResArtist = r.artist.name.toLowerCase().replace(/\s/g, "");
+        return normalizedResArtist.includes(cleanArtist) || cleanArtist.includes(normalizedResArtist);
+      });
+
+      if (matched && matched.album?.cover_medium) {
+        return {
+          artworkUrl: matched.album.cover_medium,
+          album: matched.album.title || "Single"
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
     return null;
   }
 
@@ -362,14 +407,20 @@ class MusicService {
         spotifyForArt = await this.searchSpotify(searchQuery);
       }
 
+      // หากดึงจาก Spotify ไม่สำเร็จ ให้ลองค้นหาผ่าน Deezer API เพิ่มเติม
+      let deezerForArt = null;
+      if (!itunesForArt?.artworkUrl && !spotifyForArt?.artworkUrl) {
+        deezerForArt = await this.searchDeezer(searchQuery);
+      }
+
       // หากยังค้นหาปกติไม่เจอ ให้สลับใช้การค้นหาสำรองแบบระบุเฉพาะชื่อเพลงแล้วตรวจสอบชื่อศิลปินแทน (เพื่อแก้สะกดไม่ตรง)
       let fallbackArt = null;
-      if (!itunesForArt?.artworkUrl && !spotifyForArt?.artworkUrl) {
+      if (!itunesForArt?.artworkUrl && !spotifyForArt?.artworkUrl && !deezerForArt?.artworkUrl) {
         fallbackArt = await this.searchFallbackArtwork(seed.title, seed.artist);
       }
 
-      const artworkUrl = itunesForArt?.artworkUrl || spotifyForArt?.artworkUrl || fallbackArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist);
-      const album = itunesForArt?.album || spotifyForArt?.album || fallbackArt?.album || (seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album");
+      const artworkUrl = itunesForArt?.artworkUrl || spotifyForArt?.artworkUrl || deezerForArt?.artworkUrl || fallbackArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist);
+      const album = itunesForArt?.album || spotifyForArt?.album || deezerForArt?.album || fallbackArt?.album || (seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album");
 
       return {
         id: seed.id,
@@ -415,6 +466,21 @@ class MusicService {
           previewUrl: itunesDetails.previewUrl,
           artworkUrl: details?.artworkUrl || itunesDetails.artworkUrl,
           album: details?.album || itunesDetails.album,
+        };
+      }
+    }
+
+    // 2.5 ลองค้นหาจาก Deezer เป็นแหล่งที่ 3 (ฟรี ไม่ติด Rate Limit และมีคลังเพลงกว้างขวาง)
+    if (!details || !details.previewUrl) {
+      const deezerDetails = await this.searchDeezer(query);
+      if (deezerDetails && deezerDetails.previewUrl) {
+        details = {
+          ...details,
+          title: details?.title || deezerDetails.title,
+          artist: details?.artist || deezerDetails.artist,
+          previewUrl: deezerDetails.previewUrl,
+          artworkUrl: details?.artworkUrl || deezerDetails.artworkUrl,
+          album: details?.album || deezerDetails.album,
         };
       }
     }
