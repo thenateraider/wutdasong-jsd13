@@ -1639,11 +1639,9 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                 {/* ปุ่มสลับรูปแบบตารางและรายการ */}
                 <button
                   onClick={() => {
-                    playClickSFX();
                     setViewMode(viewMode === "grid" ? "list" : "grid");
                   }}
                   style={{
-                    background: "none",
                     border: "1px solid rgba(255, 107, 53, 0.3)",
                     cursor: "pointer",
                     color: "var(--orange-core)",
@@ -1745,7 +1743,6 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                     <div
                       key={pl.url}
                       onClick={() => {
-                        playClickSFX();
                         setEditTempSelectedUrl(pl.url);
                       }}
                       style={{

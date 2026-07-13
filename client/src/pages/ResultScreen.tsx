@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useGameStore } from "../store/gameStore";
+import { useGameStore, API_URL } from "../store/gameStore";
 import { Award, RotateCcw, Home, Award as Crown, BarChart3, Clock, CheckCircle, Flame } from "lucide-react";
 import confetti from "canvas-confetti";
 import { translations } from "../utils/translations";
@@ -45,7 +45,7 @@ export function ResultScreen({ mode, onReset, onReturnHome, playClickSFX }: Resu
       saveHighScore(singlePlayerScore, songCount);
 
       // บวกจำนวนครั้งที่เล่นให้เพลย์ลิสต์ในโหมดเล่นคนเดียว
-      const { settings, API_URL } = useGameStore.getState();
+      const { settings } = useGameStore.getState();
       if (settings.playlistUrl) {
         axios.post(`${API_URL}/api/playlists/increment-play`, { playlistUrl: settings.playlistUrl })
           .catch((err) => console.error("Failed to increment play count:", err));

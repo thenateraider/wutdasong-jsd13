@@ -639,7 +639,6 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
                     setViewMode(viewMode === "grid" ? "list" : "grid");
                   }}
                   style={{
-                    background: "none",
                     border: "1px solid rgba(255, 107, 53, 0.3)",
                     cursor: "pointer",
                     color: "var(--orange-core)",
