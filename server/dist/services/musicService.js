@@ -173,6 +173,24 @@ class MusicService {
             return null;
         }
     }
+    getFallbackArtworkDataUrl() {
+        const svg = `
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+        <rect width="400" height="400" rx="48" fill="#9f2f00" />
+        <rect x="46" y="46" width="308" height="308" rx="36" fill="#e85d00" />
+        <circle cx="200" cy="200" r="118" fill="#fff4e8" stroke="#7a2b00" stroke-width="20" />
+        <g transform="translate(200 200)">
+          <animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="4s" repeatCount="indefinite" />
+          <circle cx="0" cy="0" r="78" fill="#ffb368" stroke="#7a2b00" stroke-width="16" />
+          <circle cx="0" cy="0" r="36" fill="#7a2b00" />
+          <circle cx="0" cy="0" r="20" fill="#fff4e8" />
+          <circle cx="0" cy="0" r="92" fill="none" stroke="#fff4e8" stroke-width="10" stroke-dasharray="8 10" />
+        </g>
+        <path d="M145 130h110v140H145z" fill="none" />
+        <circle cx="200" cy="200" r="12" fill="#fff4e8" />
+      </svg>`;
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    }
     // Fetch artist profile image or fallback to an iTunes track's artwork, then standard placeholder
     async getArtistFallbackImage(artistName) {
         // 1. Try Spotify artist profile image
@@ -200,7 +218,7 @@ class MusicService {
             // ignore
         }
         // 3. Absolute fallback placeholder
-        return "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop";
+        return this.getFallbackArtworkDataUrl();
     }
     // ค้นหารูปปกและอัลบั้มด้วยชื่อเพลงอย่างเดียว แล้วคัดกรองศิลปินที่ตรงกัน (กรณีสะกดต่างหรือค้นหาเต็มไม่พบ)
     async searchFallbackArtwork(title, artistName) {
@@ -316,7 +334,7 @@ class MusicService {
             const cacheKey = seed.id;
             const cached = await mongodb_1.CachedSong.findOne({ spotifyId: cacheKey });
             // หากมี Cache, รูปปกไม่ใช่รูป Fallback แผ่นเสียง, และอัลบั้มต้องไม่ใช่ "Spotify Playlist" ให้ใช้งานได้ทันที
-            if (cached && cached.artworkUrl && !cached.artworkUrl.includes("photo-1614613535308-eb5fbd3d2c17") && cached.album !== "Spotify Playlist") {
+            if (cached && cached.artworkUrl && !cached.artworkUrl.includes("data:image/svg+xml") && cached.album !== "Spotify Playlist") {
                 console.log(`[MusicService] Cache Hit for: ${seed.artist} - ${seed.title}`);
                 return {
                     id: seed.id,
