@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useGameStore } from "./store/gameStore";
+import { useGameStore, API_URL } from "./store/gameStore";
 import axios from "axios";
 import { useAudio } from "./hooks/useAudio";
 import { Home } from "./pages/Home";
@@ -58,7 +58,7 @@ export function App() {
     if (!issueDescription.trim()) return;
     setIsSubmittingIssue(true);
     try {
-      const API_URL = (import.meta as any).env.DEV ? "http://localhost:5000" : "";
+      // ส่งรายงานการใช้งานโดยใช้ API_URL จาก store เพื่อป้องกัน URL ผิดพลาดใน Production
       await axios.post(`${API_URL}/api/issues`, {
         description: issueDescription
       });

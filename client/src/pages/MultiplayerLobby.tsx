@@ -53,6 +53,29 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
   const [copied, setCopied] = useState(false);
 
+  // การตั้งค่าสำหรับการแก้ไขห้อง (Host เท่านั้น)
+  const [isEditSettingsOpen, setIsEditSettingsOpen] = useState(false);
+  const [editNumSongs, setEditNumSongs] = useState(10);
+  const [editDifficulty, setEditDifficulty] = useState<"Easy" | "Hard">("Easy");
+  const [editUseCustom, setEditUseCustom] = useState(false);
+  const [editCustomUrl, setEditCustomUrl] = useState("");
+  const [editCustomLoading, setEditCustomLoading] = useState(false);
+  const [editCustomError, setEditCustomError] = useState<string | null>(null);
+  const [isEditPlaylistModalOpen, setIsEditPlaylistModalOpen] = useState(false);
+  const [editTempSelectedUrl, setEditTempSelectedUrl] = useState("");
+
+  // ซิงค์ข้อมูลการแก้ไขห้องให้ตรงกับการตั้งค่าปัจจุบันเมื่อเปิด Modal
+  useEffect(() => {
+    if (isEditSettingsOpen && settings) {
+      setEditNumSongs(settings.numSongs);
+      setEditDifficulty(settings.difficulty || (settings.answerDuration === 5 ? "Hard" : "Easy"));
+      const isCustom = !!settings.playlistUrl && !presetPlaylists.some(p => p.url === settings.playlistUrl);
+      setEditUseCustom(isCustom);
+      setEditCustomUrl(isCustom ? settings.playlistUrl || "" : "");
+      setEditCustomError(null);
+    }
+  }, [isEditSettingsOpen, settings]);
+
   useEffect(() => {
     // Reset custom playlist state on mount or activeTab switch
     setCustomUrl("");
@@ -119,6 +142,47 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     };
     updateSettings(gameSettings);
     createRoom(newRoomName, usePassword && newPassword ? newPassword : undefined, maxPlayers);
+  };
+
+  // บันทึกการตั้งค่าห้องหลังจากแก้ไข (สำหรับ Host)
+  const handleSaveEditedSettings = async () => {
+    let activeUrl = selectedPlaylistInfo?.url || "";
+    
+    if (editUseCustom) {
+      const trimmed = editCustomUrl.trim();
+      if (!trimmed) {
+        setEditCustomError(language === "th" ? "กรุณาใส่ลิงก์ Spotify" : "Please enter Spotify link");
+        return;
+      }
+      if (!trimmed.toLowerCase().includes("spotify")) {
+        setEditCustomError(language === "th" ? "ลิงก์ Spotify ไม่ถูกต้อง" : "Invalid Spotify link");
+        return;
+      }
+      
+      setEditCustomLoading(true);
+      setEditCustomError(null);
+      try {
+        await setSelectedPlaylist(trimmed);
+        activeUrl = trimmed;
+      } catch (err) {
+        setEditCustomError(language === "th" ? "ดึงข้อมูลล้มเหลว ตรวจสอบว่าเพลย์ลิสต์เป็น Public" : "Failed to fetch playlist. Verify it is public.");
+        setEditCustomLoading(false);
+        return;
+      }
+      setEditCustomLoading(false);
+    }
+
+    const gameSettings: GameSettings = {
+      numSongs: editNumSongs,
+      answerDuration: editDifficulty === "Easy" ? 10 : 5,
+      clipDuration: 5,
+      genres: [],
+      difficulty: editDifficulty,
+      playlistUrl: activeUrl || undefined,
+    };
+    
+    updateSettings(gameSettings);
+    setIsEditSettingsOpen(false);
   };
 
   const handleJoin = async (passwordOverride?: string) => {
@@ -956,44 +1020,73 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
 
       {/* Scrollable Content */}
       <div className="lobby-room-scroll">
-        {/* Game Info Card */}
-        <div className="card" style={{ padding: "14px 16px", display: "flex", flexDirection: "column", gap: "10px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            {/* Playlist Thumb */}
-            <div style={{ width: 52, height: 52, borderRadius: "12px", overflow: "hidden", flexShrink: 0, background: "var(--orange-pastel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              {selectedPlaylistInfo?.imageUrl ? (
-                <img src={selectedPlaylistInfo.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              ) : (
-                <Music2 size={22} style={{ color: "var(--orange-core)" }} />
-              )}
+        {/* Game Info Card with Edit Button */}
+        <div style={{ display: "flex", gap: "10px", alignItems: "stretch", marginBottom: "14px" }}>
+          <div className="card" style={{ flex: 1, padding: "14px 16px", display: "flex", flexDirection: "column", gap: "10px", margin: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              {/* Playlist Thumb */}
+              <div style={{ width: 52, height: 52, borderRadius: "12px", overflow: "hidden", flexShrink: 0, background: "var(--orange-pastel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {selectedPlaylistInfo?.imageUrl ? (
+                  <img src={selectedPlaylistInfo.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                ) : (
+                  <Music2 size={22} style={{ color: "var(--orange-core)" }} />
+                )}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  {language === "th" ? "เพลย์ลิสต์" : "PLAYLIST"}
+                </div>
+                <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {selectedPlaylistInfo?.name || (settings.playlistUrl ? "Custom URL" : (language === "th" ? "สุ่ม" : "Random"))}
+                </div>
+                <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                  {selectedPlaylistInfo?.trackCount || "?"} {language === "th" ? "เพลง" : "songs"}
+                </div>
+              </div>
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "0.65rem", fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-                {language === "th" ? "เพลย์ลิสต์" : "PLAYLIST"}
+
+            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+              <div className="stat-chip">
+                <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.numSongs}</span>
+                <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> {language === "th" ? "รอบ" : "rounds"}</span>
               </div>
-              <div style={{ fontWeight: 800, fontSize: "0.95rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                {selectedPlaylistInfo?.name || (settings.playlistUrl ? "Custom URL" : (language === "th" ? "สุ่ม" : "Random"))}
+              <div className="stat-chip">
+                <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.difficulty}</span>
+                <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> · {settings.answerDuration}s</span>
               </div>
-              <div style={{ fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 600 }}>
-                {selectedPlaylistInfo?.trackCount || "?"} {language === "th" ? "เพลง" : "songs"}
+              <div className="stat-chip">
+                <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.numSongs * settings.answerDuration}s</span>
+                <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> {language === "th" ? "รวม" : "total"}</span>
               </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <div className="stat-chip">
-              <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.numSongs}</span>
-              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> {language === "th" ? "รอบ" : "rounds"}</span>
-            </div>
-            <div className="stat-chip">
-              <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.difficulty}</span>
-              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> · {settings.answerDuration}s</span>
-            </div>
-            <div className="stat-chip">
-              <span style={{ fontWeight: 700, fontSize: "0.8rem" }}>{settings.numSongs * settings.answerDuration}s</span>
-              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)" }}> {language === "th" ? "รวม" : "total"}</span>
-            </div>
-          </div>
+          {isHost && (
+            <button
+              onClick={() => setIsEditSettingsOpen(true)}
+              className="btn btn-secondary ripple"
+              style={{
+                width: "90px",
+                flexShrink: 0,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "8px",
+                fontSize: "0.75rem",
+                fontWeight: 800,
+                borderRadius: "16px",
+                padding: "10px",
+                border: "1.5px dashed var(--orange-core)",
+                background: "rgba(255, 107, 53, 0.05)",
+                color: "var(--orange-core)",
+                margin: 0
+              }}
+            >
+              <span>⚙️</span>
+              <span>{language === "th" ? "แก้ไขตั้งค่า" : "Edit Settings"}</span>
+            </button>
+          )}
         </div>
 
         <div className="lobby-layout-grid">
@@ -1223,6 +1316,224 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                   borderRadius: "12px",
                   fontWeight: 800,
                 }}
+              >
+                {language === "th" ? "ยืนยันการเลือก" : "Confirm Selection"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Room Settings Modal */}
+      {isEditSettingsOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1000, background: "rgba(0, 0, 0, 0.4)", backdropFilter: "blur(12px)" }}>
+          <div className="card animate-popup-bounce" style={{ width: "95%", maxWidth: "460px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", background: "rgba(255, 255, 255, 0.95)", boxShadow: "var(--shadow-lg)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span>⚙️</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                  {language === "th" ? "แก้ไขการตั้งค่าห้อง" : "Edit Room Settings"}
+                </h3>
+              </div>
+              <button onClick={() => setIsEditSettingsOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              {/* Playlist Selection */}
+              <div className="setup-section-card" style={{ padding: "10px" }}>
+                {sectionHeader("🎵", language === "th" ? "เลือกเพลย์ลิสต์" : "Choose Playlist")}
+                <div style={{ display: "flex", gap: "10px", marginTop: "8px" }}>
+                  <button
+                    onClick={() => {
+                      setEditUseCustom(false);
+                    }}
+                    className={`setup-option-btn ${!editUseCustom ? "selected" : ""}`}
+                    style={{ flex: 1 }}
+                  >
+                    {language === "th" ? "เพลย์ลิสต์แนะนำ" : "Preset Playlists"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setEditUseCustom(true);
+                    }}
+                    className={`setup-option-btn ${editUseCustom ? "selected" : ""}`}
+                    style={{ flex: 1 }}
+                  >
+                    {language === "th" ? "ลิงก์ Spotify" : "Spotify Link"}
+                  </button>
+                </div>
+
+                {!editUseCustom ? (
+                  <button
+                    onClick={() => {
+                      setEditTempSelectedUrl(selectedPlaylistInfo?.url || "");
+                      setIsEditPlaylistModalOpen(true);
+                    }}
+                    className="playlist-selector-trigger"
+                    style={{
+                      width: "100%",
+                      marginTop: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "10px",
+                      padding: "10px",
+                      borderRadius: "10px",
+                      border: "1px solid var(--border)",
+                      background: "#fff",
+                      textAlign: "left",
+                      cursor: "pointer"
+                    }}
+                  >
+                    <div style={{ width: "32px", height: "32px", borderRadius: "6px", overflow: "hidden", background: "var(--orange-pastel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {selectedPlaylistInfo?.imageUrl ? (
+                        <img src={selectedPlaylistInfo.imageUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Music2 size={16} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {selectedPlaylistInfo?.name || "Choose..."}
+                      </div>
+                    </div>
+                  </button>
+                ) : (
+                  <div style={{ marginTop: "10px" }}>
+                    <input
+                      type="text"
+                      placeholder="https://open.spotify.com/playlist/..."
+                      value={editCustomUrl}
+                      onChange={(e) => setEditCustomUrl(e.target.value)}
+                      className="input-text"
+                      style={{ fontSize: "0.82rem" }}
+                    />
+                    {editCustomError && (
+                      <p style={{ fontSize: "0.75rem", color: "var(--error)", marginTop: "4px", margin: "4px 0 0 0" }}>
+                        ❌ {editCustomError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Song Count & Difficulty */}
+              <div className="setup-section-card" style={{ padding: "10px" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                  <div className="setup-option-group">
+                    <label className="modal-label">{translations[language].songCount}</label>
+                    <div className="setup-option-selector">
+                      {[5, 10, 20].map((n) => (
+                        <button key={n} onClick={() => setEditNumSongs(n)} className={`setup-option-btn ${editNumSongs === n ? "selected" : ""}`}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="setup-option-group">
+                    <label className="modal-label">{language === "th" ? "ความยาก" : "Difficulty"}</label>
+                    <div className="setup-option-selector">
+                      {(["Easy", "Hard"] as const).map((d) => (
+                        <button key={d} onClick={() => setEditDifficulty(d)} className={`setup-option-btn ${editDifficulty === d ? "selected" : ""}`}>
+                          {d === "Easy" ? (language === "th" ? "ง่าย (10 วินาที)" : "Easy (10s)") : (language === "th" ? "ยาก (5 วินาที)" : "Hard (5s)")}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: "10px", width: "100%", marginTop: "10px" }}>
+                <button onClick={() => setIsEditSettingsOpen(false)} className="btn ripple" style={{ flex: 1, background: "rgba(0, 0, 0, 0.05)", border: "1px solid rgba(0,0,0,0.1)", color: "var(--text-muted)", padding: "10px", borderRadius: "12px", fontWeight: 800 }}>
+                  {language === "th" ? "ยกเลิก" : "Cancel"}
+                </button>
+                <button onClick={handleSaveEditedSettings} disabled={editCustomLoading} className="btn btn-primary ripple" style={{ flex: 1, padding: "10px", borderRadius: "12px", fontWeight: 800 }}>
+                  {editCustomLoading ? <Loader2 size={16} className="animate-spin" /> : (language === "th" ? "บันทึก" : "Save")}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Playlist Selector Modal */}
+      {isEditPlaylistModalOpen && (
+        <div className="modal-overlay" style={{ zIndex: 1100, background: "rgba(0, 0, 0, 0.4)", backdropFilter: "blur(12px)" }}>
+          <div className="card animate-popup-bounce" style={{ width: "95%", maxWidth: "460px", padding: "24px", display: "flex", flexDirection: "column", gap: "16px", background: "rgba(255, 255, 255, 0.95)", boxShadow: "var(--shadow-lg)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ fontSize: "1.3rem" }}>🎵</span>
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
+                  {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                </h3>
+              </div>
+              <button onClick={() => setIsEditPlaylistModalOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: "4px" }}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateRows: "repeat(2, 1fr)", gridAutoFlow: "column", gridAutoColumns: "135px", gap: "14px", overflowX: "auto", scrollSnapType: "x mandatory", padding: "8px 4px 16px" }}>
+              {presetPlaylists.map((pl) => {
+                const isSelected = editTempSelectedUrl === pl.url;
+                return (
+                  <div
+                    key={pl.url}
+                    onClick={() => setEditTempSelectedUrl(pl.url)}
+                    style={{
+                      scrollSnapAlign: "start",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "flex-start",
+                      gap: "8px",
+                      padding: "10px",
+                      borderRadius: "14px",
+                      border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
+                      background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
+                      cursor: "pointer",
+                      transition: "var(--t-fast)",
+                      transform: isSelected ? "scale(1.03)" : "scale(1)",
+                      boxShadow: isSelected ? "0 4px 16px rgba(255,107,53,0.25)" : "none",
+                    }}
+                  >
+                    <div style={{ width: "100%", aspectRatio: "1/1", borderRadius: "10px", overflow: "hidden", border: "1.5px solid rgba(255,255,255,0.90)", background: "var(--orange-pastel)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {pl.imageUrl ? (
+                        <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Music2 size={24} style={{ color: "var(--orange-core)" }} />
+                      )}
+                    </div>
+                    <div style={{ width: "100%", textAlign: "center", minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {pl.name}
+                      </div>
+                      <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                        {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
+              <button onClick={() => setIsEditPlaylistModalOpen(false)} className="btn ripple" style={{ flex: 1, background: "rgba(0, 0, 0, 0.05)", border: "1px solid rgba(0,0,0,0.1)", color: "var(--text-muted)", padding: "10px", borderRadius: "12px", fontWeight: 800 }}>
+                {language === "th" ? "ยกเลิก" : "Cancel"}
+              </button>
+              <button
+                onClick={async () => {
+                  setEditCustomUrl("");
+                  setEditCustomError(null);
+                  try {
+                    await setSelectedPlaylist(editTempSelectedUrl);
+                  } catch (e) {
+                    // ignore
+                  }
+                  setIsEditPlaylistModalOpen(false);
+                }}
+                className="btn btn-primary ripple"
+                style={{ flex: 1, padding: "10px", borderRadius: "12px", fontWeight: 800 }}
               >
                 {language === "th" ? "ยืนยันการเลือก" : "Confirm Selection"}
               </button>

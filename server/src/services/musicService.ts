@@ -193,12 +193,20 @@ class MusicService {
 
     // 2. Try iTunes search for artist to get any of their track's artwork
     try {
+      // ค้นหาเพลงของศิลปินจาก iTunes มากสุด 5 เพลงเพื่อหาเพลงที่ชื่อศิลปินตรงกันจริงๆ
       const response = await axios.get("https://itunes.apple.com/search", {
-        params: { term: artistName, entity: "musicTrack", limit: 1 },
+        params: { term: artistName, entity: "musicTrack", limit: 5 },
       });
-      const track = response.data.results?.[0];
-      if (track && track.artworkUrl100) {
-        let artwork = track.artworkUrl100;
+      const tracks = response.data.results || [];
+      const matchedTrack = tracks.find((r: any) => 
+        r.artistName && (
+          r.artistName.toLowerCase().includes(artistName.toLowerCase()) || 
+          artistName.toLowerCase().includes(r.artistName.toLowerCase())
+        )
+      ) || (tracks.length > 0 ? tracks[0] : null);
+
+      if (matchedTrack && matchedTrack.artworkUrl100) {
+        let artwork = matchedTrack.artworkUrl100;
         if (artwork.endsWith("100x100bb.jpg")) {
           artwork = artwork.replace("100x100bb.jpg", "400x400bb.jpg");
         }
@@ -259,7 +267,7 @@ class MusicService {
           genre: seed.genre,
           previewUrl: cached.previewUrl || seed.spotifyPreviewUrl,
           artworkUrl: cached.artworkUrl,
-          album: cached.album,
+          album: cached.album === "Spotify Playlist" ? (seed.album || "Unknown Album") : cached.album,
         };
       }
     } catch (err) {
@@ -276,7 +284,7 @@ class MusicService {
           genre: seed.genre,
           previewUrl: seed.spotifyPreviewUrl,
           artworkUrl: seed.artworkUrl,
-          album: seed.album || "Spotify Playlist",
+          album: seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album",
         };
       }
       
@@ -291,7 +299,7 @@ class MusicService {
       }
 
       const artworkUrl = itunesForArt?.artworkUrl || spotifyForArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist);
-      const album = itunesForArt?.album || spotifyForArt?.album || seed.album || "Spotify Playlist";
+      const album = itunesForArt?.album || spotifyForArt?.album || (seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album");
 
       return {
         id: seed.id,
@@ -365,7 +373,7 @@ class MusicService {
       genre: seed.genre,
       previewUrl: details.previewUrl,
       artworkUrl: details.artworkUrl || await this.getArtistFallbackImage(seed.artist),
-      album: details.album || "Unknown Album",
+      album: details.album && details.album !== "Spotify Playlist" ? details.album : "Unknown Album",
     };
   }
 
@@ -479,7 +487,7 @@ class MusicService {
           genre: "Spotify Playlist",
           spotifyPreviewUrl: t.audioPreview?.url || undefined,
           artworkUrl: artworkUrl,
-          album: "Spotify Playlist"
+          album: t.album?.name || undefined
         };
       });
 
