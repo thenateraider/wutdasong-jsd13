@@ -812,14 +812,17 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                 </button>
               </div>
 
-              {/* Carousel Gallery */}
+              {/* Carousel Gallery (2 Rows) */}
               <div
                 style={{
-                  display: "flex",
-                  gap: "12px",
+                  display: "grid",
+                  gridTemplateRows: "repeat(2, 1fr)",
+                  gridAutoFlow: "column",
+                  gridAutoColumns: "135px",
+                  gap: "14px",
                   overflowX: "auto",
                   scrollSnapType: "x mandatory",
-                  padding: "4px 2px 8px",
+                  padding: "8px 4px 16px",
                   maxHeight: "none",
                 }}
               >
@@ -832,13 +835,13 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                         setTempSelectedUrl(pl.url);
                       }}
                       style={{
-                        flex: "0 0 130px",
                         scrollSnapAlign: "start",
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
+                        justifyContent: "flex-start",
                         gap: "8px",
-                        padding: "8px",
+                        padding: "10px",
                         borderRadius: "14px",
                         border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
                         background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
@@ -1113,14 +1116,17 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
               </button>
             </div>
 
-            {/* Carousel Gallery */}
+            {/* Carousel Gallery (2 Rows) */}
             <div
               style={{
-                display: "flex",
-                gap: "12px",
+                display: "grid",
+                gridTemplateRows: "repeat(2, 1fr)",
+                gridAutoFlow: "column",
+                gridAutoColumns: "135px",
+                gap: "14px",
                 overflowX: "auto",
                 scrollSnapType: "x mandatory",
-                padding: "4px 2px 8px",
+                padding: "8px 4px 16px",
                 maxHeight: "none",
               }}
             >
@@ -1133,13 +1139,13 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                       setTempSelectedUrl(pl.url);
                     }}
                     style={{
-                      flex: "0 0 130px",
                       scrollSnapAlign: "start",
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
+                      justifyContent: "flex-start",
                       gap: "8px",
-                      padding: "8px",
+                      padding: "10px",
                       borderRadius: "14px",
                       border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
                       background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
