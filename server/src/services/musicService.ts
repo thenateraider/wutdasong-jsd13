@@ -108,9 +108,10 @@ class MusicService {
     if (!token) return null;
 
     try {
+      const cleanedQuery = cleanSearchQuery(query);
       const response = await axios.get("https://api.spotify.com/v1/search", {
         headers: { Authorization: `Bearer ${token}` },
-        params: { q: query, type: "track", limit: 1 },
+        params: { q: cleanedQuery, type: "track", limit: 1 },
       });
 
       const track = response.data.tracks?.items?.[0];
@@ -245,9 +246,28 @@ class MusicService {
   }
 
   private async resolveTrackDetails(seed: SeedSong): Promise<GameTrack | null> {
-    // If it's a playlist track with a preview URL already set
+    // ตรวจสอบข้อมูลจาก Cache ใน Database ก่อนเป็นอันดับแรก เพื่อเลี่ยงการจำกัดโควตา API
+    try {
+      const cacheKey = seed.id;
+      const cached = await CachedSong.findOne({ spotifyId: cacheKey });
+      if (cached) {
+        console.log(`[MusicService] Cache Hit for: ${seed.artist} - ${seed.title}`);
+        return {
+          id: seed.id,
+          title: cached.title,
+          artist: cached.artist,
+          genre: seed.genre,
+          previewUrl: cached.previewUrl || seed.spotifyPreviewUrl,
+          artworkUrl: cached.artworkUrl,
+          album: cached.album,
+        };
+      }
+    } catch (err) {
+      console.warn("[MusicService] Cache lookup error:", err);
+    }
+
+    // หากเป็นเพลงจาก Playlist ที่มี preview URL และมีรูปปกอยู่แล้ว ให้ส่งกลับทันที
     if (seed.spotifyPreviewUrl) {
-      // If we already have artwork, return immediately
       if (seed.artworkUrl) {
         return {
           id: seed.id,
@@ -259,40 +279,32 @@ class MusicService {
           album: seed.album || "Spotify Playlist",
         };
       }
-      // No artwork — try iTunes just to get the cover art
-      const itunesForArt = await this.searchITunes(`${seed.artist} ${seed.title}`);
+      
+      const searchQuery = `${seed.artist} ${seed.title}`;
+      // หากไม่มีรูปปก ให้ค้นหาจาก iTunes เพื่อดึงรูปปกมาใช้งาน
+      let itunesForArt = await this.searchITunes(searchQuery);
+      
+      // หากดึงจาก iTunes ไม่สำเร็จ ให้ลองค้นหาผ่าน Spotify API เพิ่มเติม
+      let spotifyForArt = null;
+      if (!itunesForArt?.artworkUrl) {
+        spotifyForArt = await this.searchSpotify(searchQuery);
+      }
+
+      const artworkUrl = itunesForArt?.artworkUrl || spotifyForArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist);
+      const album = itunesForArt?.album || spotifyForArt?.album || seed.album || "Spotify Playlist";
+
       return {
         id: seed.id,
         title: seed.title,
         artist: seed.artist,
         genre: seed.genre,
         previewUrl: seed.spotifyPreviewUrl,
-        artworkUrl: itunesForArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist),
-        album: itunesForArt?.album || seed.album || "Spotify Playlist",
+        artworkUrl,
+        album,
       };
     }
 
     const query = seed.searchQuery || `${seed.artist} ${seed.title}`;
-
-    // 0. Try DB Cache first if using Spotify ID (or via query search query match)
-    try {
-      const cacheKey = seed.id;
-      const cached = await CachedSong.findOne({ spotifyId: cacheKey });
-      if (cached) {
-        console.log(`[MusicService] Cache Hit for: ${seed.artist} - ${seed.title}`);
-        return {
-          id: seed.id,
-          title: cached.title,
-          artist: cached.artist,
-          genre: seed.genre,
-          previewUrl: cached.previewUrl,
-          artworkUrl: cached.artworkUrl,
-          album: cached.album,
-        };
-      }
-    } catch (err) {
-      console.warn("[MusicService] Cache lookup error:", err);
-    }
 
     console.log(`[MusicService] Fetching details for: ${seed.artist} - ${seed.title} (Query: ${query})`);
 
