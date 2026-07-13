@@ -116,6 +116,7 @@ interface GameState {
   
   // Leaderboard state
   leaderboard: Array<{ name: string; avatar: string; score: number; songCount: number; maxCombo?: number; date: string }>;
+  leaderboardLoading: boolean;
   fetchLeaderboard: (songCount?: number) => Promise<void>;
   saveHighScore: (score: number, songCountOverride?: number) => Promise<void>;
   highScoreSaved: boolean;
@@ -180,6 +181,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   singlePlayerLastScoreAdded: 0,
   
   leaderboard: [],
+  leaderboardLoading: false,
   highScoreSaved: false,
   countdown: null,
   presetPlaylists: [],
@@ -488,8 +490,9 @@ export const useGameStore = create<GameState>((set, get) => ({
       
       if (isCorrect) {
         timeTakenForRound = Math.max(0, settings.answerDuration - timer);
-        // Formula: [100 + (10 * timer)] * nextStreak
-        const baseScore = Math.round(100 + (10 * timer));
+        // Formula: [100 + (100 * (timer / answerDuration))] * nextStreak
+        const timeRatio = timer / settings.answerDuration;
+        const baseScore = Math.round(100 + (100 * timeRatio));
         
         nextStreak += 1;
         nextMaxCombo = Math.max(nextMaxCombo, nextStreak);
@@ -534,6 +537,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   fetchLeaderboard: async (songCount = 10) => {
+    set({ leaderboardLoading: true });
     try {
       const res = await axios.get(`${API_URL}/api/leaderboard`, {
         params: { songCount }
@@ -541,6 +545,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ leaderboard: res.data });
     } catch (err) {
       console.error("[Leaderboard] Error fetching leaderboard:", err);
+    } finally {
+      set({ leaderboardLoading: false });
     }
   },
 

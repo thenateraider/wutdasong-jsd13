@@ -140,11 +140,12 @@ export class GameEngine {
         player.streak = (player.streak || 0) + 1;
         player.maxCombo = Math.max(player.maxCombo || 0, player.streak);
         
-        // Calculate points: [100 + (10 * time remaining)] * streak
+        // Calculate points: [100 + (100 * (time remaining / answerDuration))] * streak
         const timeTaken = Math.max(0, this.settings.answerDuration - guess.timeRemaining);
         player.totalTimeTaken += timeTaken;
 
-        const baseScore = Math.round(100 + (10 * guess.timeRemaining));
+        const timeRatio = guess.timeRemaining / this.settings.answerDuration;
+        const baseScore = Math.round(100 + (100 * timeRatio));
         const scoreAdded = baseScore * player.streak;
 
         player.score += scoreAdded;

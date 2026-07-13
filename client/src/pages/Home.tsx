@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameStore } from "../store/gameStore";
-import { X, Dices } from "lucide-react";
+import { X, Dices, Loader2 } from "lucide-react";
 import { translations } from "../utils/translations";
 import axios from "axios";
 
@@ -52,7 +52,7 @@ export function Home({
   onGoToMultiplayer,
   playClickSFX,
 }: HomeProps) {
-  const { playerName, playerAvatar, setPlayerInfo, language, leaderboard, fetchLeaderboard } = useGameStore();
+  const { playerName, playerAvatar, setPlayerInfo, language, leaderboard, fetchLeaderboard, leaderboardLoading } = useGameStore();
 
   const isGuest = !playerName || playerName === "Guest Player" || playerName === "ผู้เล่นทั่วไป" || playerName.trim() === "";
   const [showForceNameModal, setShowForceNameModal] = useState(isGuest);
@@ -558,7 +558,16 @@ export function Home({
 
             {/* Podium style rows (Locked to max 65vh) */}
             <div style={{ display: "flex", flexDirection: "column", gap: "10px", maxHeight: "40vh", overflowY: "auto", paddingRight: "4px", flex: 1 }}>
-              {leaderboard.length === 0 ? (
+              {leaderboardLoading ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", gap: "12px", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                  <Loader2 className="animate-spin" size={32} style={{ color: "var(--orange-core)" }} />
+                  <span>
+                    {language === "th" 
+                      ? "กำลังดึงข้อมูล... (กำลังปลุกเซิร์ฟเวอร์หากหลับอยู่ 🐈💤)" 
+                      : "Loading... (Waking up server if asleep 🐈💤)"}
+                  </span>
+                </div>
+              ) : leaderboard.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)", fontSize: "0.9rem" }}>
                   {language === "th" ? "ยังไม่มีสถิติถูกบันทึก เล่นสักตาเลย!" : "No records yet. Play a game!"}
                 </div>
