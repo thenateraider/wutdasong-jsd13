@@ -180,7 +180,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   // บันทึกการตั้งค่าห้องหลังจากแก้ไข (สำหรับ Host)
   const handleSaveEditedSettings = async () => {
     let activeUrl = selectedPlaylistInfo?.url || "";
-    
+
     if (editUseCustom) {
       const trimmed = editCustomUrl.trim();
       if (!trimmed) {
@@ -191,7 +191,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
         setEditCustomError(language === "th" ? "ลิงก์ Spotify ไม่ถูกต้อง" : "Invalid Spotify link");
         return;
       }
-      
+
       setEditCustomLoading(true);
       setEditCustomError(null);
       try {
@@ -213,7 +213,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
       difficulty: editDifficulty,
       playlistUrl: activeUrl || undefined,
     };
-    
+
     updateSettings(gameSettings);
     setIsEditSettingsOpen(false);
   };
@@ -1031,7 +1031,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
   return (
     <div className="lobby-room-root">
       {/* Header Room Info */}
-      <div className="lobby-room-header">
+      <div className="lobby-room-header" style={{ flexDirection: "column", alignItems: "flex-start", gap: "10px" }}>
         <div>
           <span style={{ fontSize: "0.7rem", color: "var(--primary)", fontWeight: "800", textTransform: "uppercase", letterSpacing: "0.08em" }}>Multiplayer Lobby</span>
           <h2 style={{ fontSize: "1.75rem", fontWeight: "800", display: "flex", alignItems: "center", gap: "8px", margin: "4px 0 0 0" }}>
@@ -1040,7 +1040,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
           </h2>
         </div>
 
-        <div className="lobby-room-code-card">
+        <div className="lobby-room-code-card" style={{ width: "100%", display: "flex", justifyContent: "space-between", margin: 0 }}>
           <div style={{ marginRight: "16px" }}>
             <div className="lobby-room-code-title">Room Code</div>
             <div className="lobby-room-code-val">{roomCode}</div>
@@ -1413,8 +1413,8 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                       gap: "10px",
                       padding: "10px",
                       borderRadius: "10px",
-                      border: "1px solid var(--border)",
-                      background: "#fff",
+                      border: "1.5px solid var(--orange-core)",
+                      background: "rgba(255, 107, 53, 0.04)",
                       textAlign: "left",
                       cursor: "pointer"
                     }}
