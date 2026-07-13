@@ -891,98 +891,219 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                 <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                   <span style={{ fontSize: "1.3rem" }}>🎵</span>
                   <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 900, color: "var(--text-dark)" }}>
-                    {language === "th" ? "เลือกหมวดเพลง" : "Select Playlist Category"}
+                    {language === "th" ? "เลือกเพลย์ลิสต์" : "Select Playlist"}
                   </h3>
                 </div>
-                <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                  }}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <button
+                    onClick={() => {
+                      setViewMode(viewMode === "grid" ? "list" : "grid");
+                    }}
+                    style={{
+                      border: "1px solid rgba(255, 107, 53, 0.3)",
+                      cursor: "pointer",
+                      color: "var(--orange-core)",
+                      padding: "6px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderRadius: "8px",
+                      background: viewMode === "list" ? "rgba(255, 107, 53, 0.08)" : "none",
+                      transition: "var(--t-fast)"
+                    }}
+                    title={viewMode === "grid" ? "Switch to List View" : "Switch to Grid View"}
+                  >
+                    {viewMode === "grid" ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                        <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                        <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                        <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+                      </svg>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsModalOpen(false);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "var(--text-muted)",
+                      padding: "4px"
+                    }}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              {viewMode === "grid" ? (
+                <div
                   style={{
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "var(--text-muted)",
-                    padding: "4px"
+                    display: "grid",
+                    gridTemplateRows: "repeat(2, 1fr)",
+                    gridAutoFlow: "column",
+                    gridAutoColumns: "135px",
+                    gap: "14px",
+                    overflowX: "auto",
+                    scrollSnapType: "x mandatory",
+                    padding: "8px 4px 16px",
+                    maxHeight: "none",
                   }}
                 >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Carousel Gallery (2 Rows) */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateRows: "repeat(2, 1fr)",
-                  gridAutoFlow: "column",
-                  gridAutoColumns: "135px",
-                  gap: "14px",
-                  overflowX: "auto",
-                  scrollSnapType: "x mandatory",
-                  padding: "8px 4px 16px",
-                  maxHeight: "none",
-                }}
-              >
-                {presetPlaylists.map((pl) => {
-                  const isSelected = tempSelectedUrl === pl.url;
-                  return (
-                    <div
-                      key={pl.url}
-                      onClick={() => {
-                        setTempSelectedUrl(pl.url);
-                      }}
-                      style={{
-                        scrollSnapAlign: "start",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "flex-start",
-                        gap: "8px",
-                        padding: "10px",
-                        borderRadius: "14px",
-                        border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
-                        background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
-                        cursor: "pointer",
-                        transition: "var(--t-fast)",
-                        transform: isSelected ? "scale(1.03)" : "scale(1)",
-                        boxShadow: isSelected ? "0 4px 16px rgba(255,107,53,0.25)" : "none",
-                      }}
-                    >
-                      {/* Thumbnail */}
+                  {presetPlaylists.map((pl) => {
+                    const isSelected = tempSelectedUrl === pl.url;
+                    return (
                       <div
+                        key={pl.url}
+                        onClick={() => {
+                          setTempSelectedUrl(pl.url);
+                        }}
                         style={{
-                          width: "100%",
-                          aspectRatio: "1/1",
-                          borderRadius: "10px",
-                          overflow: "hidden",
-                          border: "1.5px solid rgba(255,255,255,0.90)",
-                          background: "var(--orange-pastel)",
+                          scrollSnapAlign: "start",
                           display: "flex",
+                          flexDirection: "column",
                           alignItems: "center",
-                          justifyContent: "center"
+                          justifyContent: "flex-start",
+                          gap: "8px",
+                          padding: "10px",
+                          borderRadius: "14px",
+                          border: isSelected ? "2px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
+                          background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.60)",
+                          cursor: "pointer",
+                          transition: "var(--t-fast)",
+                          transform: isSelected ? "scale(1.03)" : "scale(1)",
+                          boxShadow: isSelected ? "0 4px 16px rgba(255,107,53,0.25)" : "none",
                         }}
                       >
-                        {pl.imageUrl ? (
-                          <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        ) : (
-                          <Music2 size={24} style={{ color: "var(--orange-core)" }} />
-                        )}
-                      </div>
+                        <div
+                          style={{
+                            width: "100%",
+                            aspectRatio: "1/1",
+                            borderRadius: "10px",
+                            overflow: "hidden",
+                            border: "1.5px solid rgba(255,255,255,0.90)",
+                            background: "var(--orange-pastel)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}
+                        >
+                          {pl.imageUrl ? (
+                            <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <Music2 size={24} style={{ color: "var(--orange-core)" }} />
+                          )}
+                        </div>
 
-                      {/* Details */}
-                      <div style={{ width: "100%", textAlign: "center", minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {pl.name}
-                        </div>
-                        <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>
-                          {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
+                        <div style={{ width: "100%", textAlign: "center", minWidth: 0 }}>
+                          <div style={{ fontWeight: 800, fontSize: "0.78rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {pl.name}
+                          </div>
+                          <div style={{ fontSize: "0.65rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                            {pl.trackCount} {language === "th" ? "เพลง" : "songs"}
+                          </div>
+                          <div style={{ fontSize: "0.63rem", color: "var(--orange-core)", fontWeight: 800, marginTop: "2px" }}>
+                            {language === "th" ? `เล่น ${pl.playCount || 0} ครั้ง` : `Played ${pl.playCount || 0} times`}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "10px",
+                    maxHeight: "300px",
+                    overflowY: "auto",
+                    padding: "4px",
+                  }}
+                >
+                  {presetPlaylists.map((pl) => {
+                    const isSelected = tempSelectedUrl === pl.url;
+                    return (
+                      <div
+                        key={pl.url}
+                        onClick={() => {
+                          setTempSelectedUrl(pl.url);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "10px 14px",
+                          borderRadius: "14px",
+                          border: isSelected ? "2.5px solid var(--orange-core)" : "1.5px solid rgba(255, 107, 53, 0.12)",
+                          background: isSelected ? "rgba(255, 107, 53, 0.08)" : "rgba(255, 255, 255, 0.70)",
+                          cursor: "pointer",
+                          transition: "var(--t-fast)",
+                          transform: isSelected ? "scale(1.01)" : "scale(1)",
+                          boxShadow: isSelected ? "0 4px 12px rgba(255,107,53,0.15)" : "none",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "48px",
+                            height: "48px",
+                            borderRadius: "8px",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            background: "var(--orange-pastel)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center"
+                          }}
+                        >
+                          {pl.imageUrl ? (
+                            <img src={pl.imageUrl} alt={pl.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ) : (
+                            <Music2 size={18} style={{ color: "var(--orange-core)" }} />
+                          )}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: "2px" }}>
+                          <div style={{ fontWeight: 800, fontSize: "0.85rem", color: "var(--text-dark)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {pl.name}
+                          </div>
+                          <div style={{ display: "flex", gap: "8px", alignItems: "center", fontSize: "0.72rem", color: "var(--text-muted)", fontWeight: 700 }}>
+                            <span>{pl.trackCount} {language === "th" ? "เพลง" : "songs"}</span>
+                            <span>•</span>
+                            <span style={{ color: "var(--orange-core)", fontWeight: 800 }}>
+                              {language === "th" ? `เล่น ${pl.playCount || 0} ครั้ง` : `Played ${pl.playCount || 0} times`}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div style={{
+                          width: "18px",
+                          height: "18px",
+                          borderRadius: "50%",
+                          border: "2px solid var(--orange-core)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          background: isSelected ? "var(--orange-core)" : "transparent",
+                          flexShrink: 0,
+                          transition: "var(--t-fast)"
+                        }}>
+                          {isSelected && <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: "#fff" }} />}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               {/* Footer Buttons */}
               <div style={{ display: "flex", gap: "10px", width: "100%" }}>
