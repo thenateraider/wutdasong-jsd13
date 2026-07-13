@@ -364,8 +364,8 @@ class MusicService {
     try {
       const cacheKey = seed.id;
       const cached = await CachedSong.findOne({ spotifyId: cacheKey });
-      // หากมี Cache และรูปปกไม่ใช่รูป Fallback แผ่นเสียง ให้ใช้งานได้ทันที
-      if (cached && cached.artworkUrl && !cached.artworkUrl.includes("photo-1614613535308-eb5fbd3d2c17")) {
+      // หากมี Cache, รูปปกไม่ใช่รูป Fallback แผ่นเสียง, และอัลบั้มต้องไม่ใช่ "Spotify Playlist" ให้ใช้งานได้ทันที
+      if (cached && cached.artworkUrl && !cached.artworkUrl.includes("photo-1614613535308-eb5fbd3d2c17") && cached.album !== "Spotify Playlist") {
         console.log(`[MusicService] Cache Hit for: ${seed.artist} - ${seed.title}`);
         return {
           id: seed.id,
@@ -374,7 +374,7 @@ class MusicService {
           genre: seed.genre,
           previewUrl: cached.previewUrl || seed.spotifyPreviewUrl,
           artworkUrl: cached.artworkUrl,
-          album: cached.album === "Spotify Playlist" ? (seed.album || "Unknown Album") : cached.album,
+          album: cached.album,
         };
       }
     } catch (err) {
