@@ -4,6 +4,8 @@ import { Award, RotateCcw, Home, Award as Crown, BarChart3, Clock, CheckCircle, 
 import confetti from "canvas-confetti";
 import { translations } from "../utils/translations";
 
+import axios from "axios";
+
 interface ResultScreenProps {
   mode: "single" | "multi";
   onReset: () => void;
@@ -41,6 +43,13 @@ export function ResultScreen({ mode, onReset, onReturnHome, playClickSFX }: Resu
     const songCount = rounds.length || 10;
     if (mode === "single") {
       saveHighScore(singlePlayerScore, songCount);
+
+      // บวกจำนวนครั้งที่เล่นให้เพลย์ลิสต์ในโหมดเล่นคนเดียว
+      const { settings, API_URL } = useGameStore.getState();
+      if (settings.playlistUrl) {
+        axios.post(`${API_URL}/api/playlists/increment-play`, { playlistUrl: settings.playlistUrl })
+          .catch((err) => console.error("Failed to increment play count:", err));
+      }
     } else if (mode === "multi" && socket) {
       const myPlayer = players.find((p) => p.id === socket.id);
       if (myPlayer) {

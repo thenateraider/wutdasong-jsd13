@@ -122,7 +122,7 @@ interface GameState {
   saveHighScore: (score: number, songCountOverride?: number) => Promise<void>;
   highScoreSaved: boolean;
   countdown: number | null;
-  presetPlaylists: Array<{ name: string; url: string; imageUrl: string; trackCount: number; isDefault: boolean }>;
+  presetPlaylists: Array<{ name: string; url: string; imageUrl: string; trackCount: number; isDefault: boolean; playCount?: number }>;
   selectedPlaylistInfo: { name: string; url: string; imageUrl: string | null; trackCount: number } | null;
   fetchPresetPlaylists: () => Promise<void>;
   setSelectedPlaylist: (url: string) => Promise<void>;

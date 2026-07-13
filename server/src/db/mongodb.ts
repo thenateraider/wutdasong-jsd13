@@ -82,6 +82,7 @@ export interface IPresetPlaylist extends Document {
   imageUrl: string;
   trackCount: number;
   isDefault: boolean;
+  playCount: number;
 }
 
 const PresetPlaylistSchema: Schema = new Schema({
@@ -89,7 +90,8 @@ const PresetPlaylistSchema: Schema = new Schema({
   url: { type: String, required: true, unique: true },
   imageUrl: { type: String, default: "" },
   trackCount: { type: Number, required: true, default: 0 },
-  isDefault: { type: Boolean, default: false }
+  isDefault: { type: Boolean, default: false },
+  playCount: { type: Number, default: 0 }
 });
 
 export const PresetPlaylist = mongoose.model<IPresetPlaylist>("PresetPlaylist", PresetPlaylistSchema);

@@ -93,6 +93,41 @@ app.get("/api/playlist-info", async (req, res) => {
   }
 });
 
+// ตัวช่วยบวกสถิติจำนวนการเล่นเพลย์ลิสต์
+const incrementPlaylistPlayCount = async (playlistUrl: string) => {
+  if (!playlistUrl) return;
+  try {
+    const playlistId = musicService.extractPlaylistId(playlistUrl);
+    if (!playlistId) return;
+    const cleanUrl = `https://open.spotify.com/playlist/${playlistId}`;
+    
+    // ค้นหาและบวกจำนวนครั้งที่เล่น (นับรวม custom playlist หากมี URL ตรงกับ preset)
+    const playlist = await PresetPlaylist.findOne({ url: cleanUrl });
+    if (playlist) {
+      playlist.playCount = (playlist.playCount || 0) + 1;
+      await playlist.save();
+      console.log(`[PlayCount] Incremented playCount for: ${playlist.name} (Now: ${playlist.playCount})`);
+    } else {
+      console.log(`[PlayCount] Custom playlist URL not in presets: ${cleanUrl}`);
+    }
+  } catch (err: any) {
+    console.error("[PlayCount] Error incrementing playCount:", err.message);
+  }
+};
+
+// API สำหรับแจ้งบวกจำนวนการเล่นเพลย์ลิสต์ (จากโหมดเล่นคนเดียวเมื่อจบเกม)
+app.post("/api/playlists/increment-play", async (req, res) => {
+  try {
+    const { playlistUrl } = req.body;
+    if (playlistUrl) {
+      await incrementPlaylistPlayCount(playlistUrl);
+    }
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Get preset playlists from MongoDB
 app.get("/api/playlists", async (req, res) => {
   try {
@@ -353,6 +388,10 @@ const revealMultiplayerAnswers = (roomCode: string) => {
         players: Array.from(game.players.values())
       });
       console.log(`[Game] Room ${roomCode} - Game finished. Showing results.`);
+      // บวกจำนวนครั้งที่เล่นให้เพลย์ลิสต์ในโหมดผู้เล่นหลายคน
+      if (room.settings.playlistUrl) {
+        incrementPlaylistPlayCount(room.settings.playlistUrl);
+      }
     }
   }, 9000); // 4s reveal + 5s rankings display
 };
