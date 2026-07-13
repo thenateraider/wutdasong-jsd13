@@ -27,13 +27,15 @@ export interface ILeaderboard extends Document {
 }
 
 const LeaderboardSchema: Schema = new Schema({
-  name: { type: String, required: true },
+  name: { type: String, required: true, trim: true },
   avatar: { type: String, required: true },
   score: { type: Number, required: true },
   songCount: { type: Number, required: true, default: 10 },
   maxCombo: { type: Number, required: true, default: 1 },
   date: { type: Date, default: Date.now },
 });
+
+LeaderboardSchema.index({ name: 1, songCount: 1 }, { unique: true });
 
 export const Leaderboard = mongoose.model<ILeaderboard>("Leaderboard", LeaderboardSchema);
 

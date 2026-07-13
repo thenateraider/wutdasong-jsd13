@@ -225,29 +225,47 @@ app.get("/api/leaderboard/check-name", async (req, res) => {
   }
 });
 
-// Leaderboard: Post a new score, scoped by name AND songCount (guarantees atomic single record)
+// Leaderboard: Post a new score, scoped by name AND songCount.
+// Only the highest score for a player in a given song-count mode is kept.
 app.post("/api/leaderboard", async (req, res) => {
   try {
     const { name, avatar, score, songCount, maxCombo } = req.body;
     const targetSongCount = typeof songCount === "number" ? songCount : 10;
+    const trimmedName = String(name || "").trim();
+    const incomingMaxCombo = typeof maxCombo === "number" ? maxCombo : 1;
+    const safeAvatar = typeof avatar === "string" ? avatar : "";
 
-    if (!name || typeof score !== "number") {
+    if (!trimmedName || typeof score !== "number") {
       return res.status(400).json({ error: "Name and score are required." });
     }
 
-    // Atomic find and update or insert if not exists
-    const record = await Leaderboard.findOneAndUpdate(
-      { name, songCount: targetSongCount },
-      {
-        $set: {
-          avatar,
-          score,
-          maxCombo: typeof maxCombo === "number" ? maxCombo : 1,
-          date: new Date()
-        }
-      },
-      { upsert: true, new: true }
-    );
+    const existingRecord = await Leaderboard.findOne({ name: trimmedName, songCount: targetSongCount });
+
+    let record;
+    if (!existingRecord) {
+      record = await Leaderboard.create({
+        name: trimmedName,
+        avatar: safeAvatar,
+        score,
+        songCount: targetSongCount,
+        maxCombo: incomingMaxCombo,
+        date: new Date()
+      });
+    } else if (score > existingRecord.score) {
+      existingRecord.avatar = safeAvatar;
+      existingRecord.score = score;
+      existingRecord.maxCombo = incomingMaxCombo;
+      existingRecord.date = new Date();
+      record = await existingRecord.save();
+    } else {
+      if (!existingRecord.avatar && safeAvatar) {
+        existingRecord.avatar = safeAvatar;
+      }
+      if (incomingMaxCombo > existingRecord.maxCombo) {
+        existingRecord.maxCombo = incomingMaxCombo;
+      }
+      record = await existingRecord.save();
+    }
 
     res.json({ success: true, record });
   } catch (err: any) {

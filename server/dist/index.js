@@ -11,13 +11,25 @@ const dotenv_1 = __importDefault(require("dotenv"));
 const musicService_1 = __importDefault(require("./services/musicService"));
 const RoomManager_1 = __importDefault(require("./game/RoomManager"));
 const GameEngine_1 = __importDefault(require("./game/GameEngine"));
+const mongodb_1 = require("./db/mongodb");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 const port = process.env.PORT || 5000;
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
 // In-memory cache for singleplayer rounds to keep answers secure from clients
+// Map key: questionId, value: { answer, timestamp }
 const singleplayerAnswers = new Map();
+// Cleanup stale answers every hour to prevent memory leaks
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, value] of singleplayerAnswers.entries()) {
+        // If older than 2 hours (2 * 60 * 60 * 1000)
+        if (now - value.timestamp > 7200000) {
+            singleplayerAnswers.delete(key);
+        }
+    }
+}, 3600000);
 // Test endpoint
 app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date() });
@@ -32,7 +44,10 @@ app.post("/api/singleplayer/start", async (req, res) => {
         const rounds = await musicService_1.default.generateGameRounds(settings.genres, settings.numSongs, settings.playlistUrl);
         // Store answers in cache, scrub them from the response
         const clientRounds = rounds.map((round) => {
-            singleplayerAnswers.set(round.questionId, round.secretAnswer);
+            singleplayerAnswers.set(round.questionId, {
+                answer: round.secretAnswer,
+                timestamp: Date.now()
+            });
             return {
                 roundNumber: round.roundNumber,
                 questionId: round.questionId,
@@ -47,19 +62,222 @@ app.post("/api/singleplayer/start", async (req, res) => {
         res.status(500).json({ error: "Failed to generate game playlist: " + error.message });
     }
 });
+// Playlist Info Preview Route
+app.get("/api/playlist-info", async (req, res) => {
+    try {
+        const { url } = req.query;
+        if (!url || typeof url !== "string") {
+            return res.status(400).json({ error: "Missing playlist URL." });
+        }
+        const playlistId = musicService_1.default.extractPlaylistId(url);
+        if (!playlistId) {
+            return res.status(400).json({ error: "Invalid Spotify playlist URL." });
+        }
+        const info = await musicService_1.default.fetchPlaylistInfo(playlistId);
+        if (!info) {
+            return res.status(404).json({ error: "Could not fetch playlist info. Make sure the playlist is public." });
+        }
+        res.json(info);
+    }
+    catch (error) {
+        console.error("[PlaylistInfo] Error:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+// ตัวช่วยบวกสถิติจำนวนการเล่นเพลย์ลิสต์
+const incrementPlaylistPlayCount = async (playlistUrl) => {
+    if (!playlistUrl)
+        return;
+    try {
+        const playlistId = musicService_1.default.extractPlaylistId(playlistUrl);
+        if (!playlistId)
+            return;
+        const cleanUrl = `https://open.spotify.com/playlist/${playlistId}`;
+        // ค้นหาและบวกจำนวนครั้งที่เล่น (นับรวม custom playlist หากมี URL ตรงกับ preset)
+        const playlist = await mongodb_1.PresetPlaylist.findOne({ url: cleanUrl });
+        if (playlist) {
+            playlist.playCount = (playlist.playCount || 0) + 1;
+            await playlist.save();
+            console.log(`[PlayCount] Incremented playCount for: ${playlist.name} (Now: ${playlist.playCount})`);
+        }
+        else {
+            console.log(`[PlayCount] Custom playlist URL not in presets: ${cleanUrl}`);
+        }
+    }
+    catch (err) {
+        console.error("[PlayCount] Error incrementing playCount:", err.message);
+    }
+};
+// API สำหรับแจ้งบวกจำนวนการเล่นเพลย์ลิสต์ (จากโหมดเล่นคนเดียวเมื่อจบเกม)
+app.post("/api/playlists/increment-play", async (req, res) => {
+    try {
+        const { playlistUrl } = req.body;
+        if (playlistUrl) {
+            await incrementPlaylistPlayCount(playlistUrl);
+        }
+        res.json({ success: true });
+    }
+    catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// Get preset playlists from MongoDB
+app.get("/api/playlists", async (req, res) => {
+    try {
+        const playlists = await mongodb_1.PresetPlaylist.find().sort({ isDefault: -1, name: 1 });
+        res.json(playlists);
+    }
+    catch (err) {
+        res.status(500).json({ error: "Failed to retrieve playlists: " + err.message });
+    }
+});
+// Add a new preset playlist dynamically (e.g. from songrequest page)
+app.post("/api/playlists", async (req, res) => {
+    try {
+        const { url } = req.body;
+        if (!url || typeof url !== "string") {
+            return res.status(400).json({ error: "Missing playlist URL." });
+        }
+        const playlistId = musicService_1.default.extractPlaylistId(url);
+        if (!playlistId) {
+            return res.status(400).json({ error: "Invalid Spotify playlist URL." });
+        }
+        // Standardize URL
+        const cleanUrl = `https://open.spotify.com/playlist/${playlistId}`;
+        // Check if it already exists
+        const existing = await mongodb_1.PresetPlaylist.findOne({ url: cleanUrl });
+        if (existing) {
+            return res.json({ success: true, message: "Playlist already exists.", playlist: existing });
+        }
+        // Fetch details from Spotify
+        const info = await musicService_1.default.fetchPlaylistInfo(playlistId);
+        if (!info) {
+            return res.status(404).json({ error: "Could not fetch Spotify playlist info. Please ensure it is a public playlist." });
+        }
+        const newPlaylist = new mongodb_1.PresetPlaylist({
+            name: info.name,
+            url: cleanUrl,
+            imageUrl: info.imageUrl || "",
+            trackCount: info.trackCount || 0,
+            isDefault: false
+        });
+        await newPlaylist.save();
+        console.log(`[Presets] Dynamic playlist added: ${info.name} with ${info.trackCount} tracks.`);
+        res.json({ success: true, message: "Playlist added successfully.", playlist: newPlaylist });
+    }
+    catch (error) {
+        console.error("[AddPlaylist] Error:", error.message);
+        res.status(500).json({ error: "Failed to add playlist: " + error.message });
+    }
+});
 // Single Player Reveal Route
 app.post("/api/singleplayer/reveal", (req, res) => {
     const { questionId } = req.body;
     if (!questionId) {
         return res.status(400).json({ error: "Missing questionId." });
     }
-    const answer = singleplayerAnswers.get(questionId);
-    if (!answer) {
+    const cached = singleplayerAnswers.get(questionId);
+    if (!cached) {
         return res.status(404).json({ error: "Answer not found or already revealed." });
     }
     // Clean up cache to prevent memory leaks
     singleplayerAnswers.delete(questionId);
-    res.json({ answer });
+    res.json({ answer: cached.answer });
+});
+// Leaderboard: Fetch top 100 players (or paginated) filtered by songCount
+app.get("/api/leaderboard", async (req, res) => {
+    try {
+        const songCount = parseInt(req.query.songCount) || 10;
+        const list = await mongodb_1.Leaderboard.find({ songCount }).sort({ score: -1 }).limit(100);
+        res.json(list);
+    }
+    catch (err) {
+        res.status(500).json({ error: "Failed to fetch leaderboard: " + err.message });
+    }
+});
+// Leaderboard: Check if username already exists
+app.get("/api/leaderboard/check-name", async (req, res) => {
+    try {
+        const { name } = req.query;
+        if (!name)
+            return res.json({ exists: false });
+        const count = await mongodb_1.Leaderboard.countDocuments({ name: String(name).trim() });
+        res.json({ exists: count > 0 });
+    }
+    catch (err) {
+        res.status(500).json({ error: "Failed to check name: " + err.message });
+    }
+});
+// Leaderboard: Post a new score, scoped by name AND songCount.
+// Only the highest score for a player in a given song-count mode is kept.
+app.post("/api/leaderboard", async (req, res) => {
+    try {
+        const { name, avatar, score, songCount, maxCombo } = req.body;
+        const targetSongCount = typeof songCount === "number" ? songCount : 10;
+        const trimmedName = String(name || "").trim();
+        const incomingMaxCombo = typeof maxCombo === "number" ? maxCombo : 1;
+        const safeAvatar = typeof avatar === "string" ? avatar : "";
+        if (!trimmedName || typeof score !== "number") {
+            return res.status(400).json({ error: "Name and score are required." });
+        }
+        const existingRecord = await mongodb_1.Leaderboard.findOne({ name: trimmedName, songCount: targetSongCount });
+        let record;
+        if (!existingRecord) {
+            record = await mongodb_1.Leaderboard.create({
+                name: trimmedName,
+                avatar: safeAvatar,
+                score,
+                songCount: targetSongCount,
+                maxCombo: incomingMaxCombo,
+                date: new Date()
+            });
+        }
+        else if (score > existingRecord.score) {
+            existingRecord.avatar = safeAvatar;
+            existingRecord.score = score;
+            existingRecord.maxCombo = incomingMaxCombo;
+            existingRecord.date = new Date();
+            record = await existingRecord.save();
+        }
+        else {
+            if (!existingRecord.avatar && safeAvatar) {
+                existingRecord.avatar = safeAvatar;
+            }
+            if (incomingMaxCombo > existingRecord.maxCombo) {
+                existingRecord.maxCombo = incomingMaxCombo;
+            }
+            record = await existingRecord.save();
+        }
+        res.json({ success: true, record });
+    }
+    catch (err) {
+        res.status(500).json({ error: "Failed to save high score: " + err.message });
+    }
+});
+// Report issue feedback endpoint
+app.post("/api/issues", async (req, res) => {
+    try {
+        const { description } = req.body;
+        if (!description || !description.trim()) {
+            return res.status(400).json({ error: "Description is required." });
+        }
+        const newIssue = new mongodb_1.IssueReport({ description });
+        await newIssue.save();
+        res.json({ success: true, message: "Issue reported successfully." });
+    }
+    catch (err) {
+        res.status(500).json({ error: "Failed to submit issue: " + err.message });
+    }
+});
+// ล้างแคชรูปปกเพลงทั้งหมดในฐานข้อมูลครั้งเดียวผ่าน Browser (สำหรับแอดมิน)
+app.get("/api/admin/clear-cache", async (req, res) => {
+    try {
+        const result = await mongodb_1.CachedSong.deleteMany({});
+        res.json({ success: true, message: `Successfully cleared ${result.deletedCount} songs from database cache.` });
+    }
+    catch (err) {
+        res.status(500).json({ error: "Failed to clear cache: " + err.message });
+    }
 });
 const server = http_1.default.createServer(app);
 const io = new socket_io_1.Server(server, {
@@ -67,6 +285,8 @@ const io = new socket_io_1.Server(server, {
         origin: "*", // Allow all during development
         methods: ["GET", "POST"],
     },
+    pingInterval: 25000,
+    pingTimeout: 60000,
 });
 // Helper: Broadcast room updates
 const broadcastRoomUpdate = (roomCode) => {
@@ -154,11 +374,19 @@ const revealMultiplayerAnswers = (roomCode) => {
                 players: Array.from(game.players.values())
             });
             console.log(`[Game] Room ${roomCode} - Game finished. Showing results.`);
+            // บวกจำนวนครั้งที่เล่นให้เพลย์ลิสต์ในโหมดผู้เล่นหลายคน
+            if (room.settings.playlistUrl) {
+                incrementPlaylistPlayCount(room.settings.playlistUrl);
+            }
         }
-    }, 4000); // 4 seconds delay for reveal so players can view results
+    }, 9000); // 4s reveal + 5s rankings display
 };
 io.on("connection", (socket) => {
     console.log(`[Socket] Player connected: ${socket.id}`);
+    socket.on("verify_room", (data, callback) => {
+        const room = RoomManager_1.default.getRoom(data.code);
+        callback(!!room);
+    });
     // Create Room
     socket.on("create_room", (data) => {
         const room = RoomManager_1.default.createRoom(socket.id, data.hostName, data.hostAvatar, data.settings, data.roomName, data.password, data.maxPlayers);
@@ -209,6 +437,11 @@ io.on("connection", (socket) => {
         const room = RoomManager_1.default.getRoom(data.code);
         if (!room || room.hostId !== socket.id || room.state !== "lobby")
             return;
+        // Check if all players are ready
+        const allReady = room.players.every(p => p.id === room.hostId || p.isReady);
+        if (!allReady) {
+            return socket.emit("start_game_error", { error: "All players must be ready before starting!" });
+        }
         try {
             io.to(room.code).emit("loading_game", { message: "Generating dynamic playlist from Spotify..." });
             const rounds = await musicService_1.default.generateGameRounds(room.settings.genres, room.settings.numSongs, room.settings.playlistUrl);
@@ -219,8 +452,15 @@ io.on("connection", (socket) => {
             }
             await game.initialize(rounds);
             room.game = game;
-            // Start gameplay sequence
-            await startMultiplayerRound(room.code);
+            // Send game starting event with 5s countdown
+            io.to(room.code).emit("game_starting", { countdown: 5 });
+            // Start gameplay sequence after 5 seconds
+            setTimeout(async () => {
+                const activeRoom = RoomManager_1.default.getRoom(data.code);
+                if (activeRoom && activeRoom.game && activeRoom.state === "lobby") {
+                    await startMultiplayerRound(activeRoom.code);
+                }
+            }, 5000);
         }
         catch (err) {
             console.error("[Socket Start Game Error]:", err.message);
@@ -244,6 +484,18 @@ io.on("connection", (socket) => {
                 }
                 revealMultiplayerAnswers(room.code);
             }
+        }
+    });
+    // Return to lobby after game ends
+    socket.on("return_to_lobby", (data) => {
+        const success = RoomManager_1.default.returnToLobby(data.code, socket.id);
+        if (success) {
+            broadcastRoomUpdate(data.code);
+            io.to(data.code).emit("chat_message", {
+                sender: "System",
+                text: "Game ended. Returned to lobby. Ready up to play again!",
+                timestamp: Date.now()
+            });
         }
     });
     // Disconnect & Room exit handling
@@ -284,6 +536,122 @@ const handleDisconnect = (socket) => {
         }
     }
 };
-server.listen(port, () => {
-    console.log(`[Server] Guess The Song Server running on port ${port}`);
-});
+const seedPresetPlaylists = async () => {
+    try {
+        const defaultPlaylists = [
+            // ⚠️ ก่อนเพิ่ม playlist ใหม่: เช็คว่า count defaultPlaylists ตรงกับใน MongoDB — ถ้าตรงแล้วจะ skip
+            // ถ้าต้องการ force reseed: ลบ collection ใน MongoDB หรือเปลี่ยน URL
+            {
+                name: "Hot Hits Thailand",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DXc51TI5dx7RC?si=t6MQUQl4QHaaXRJgsPC9MA",
+                isDefault: true
+            },
+            {
+                name: "Rock สากล 90-2000s",
+                url: "https://open.spotify.com/playlist/7BSZj2llc5gi5sO87LTb1i?si=9s31_nsLROufx6GiI5wOHQ",
+                isDefault: false
+            },
+            {
+                name: "ไทยสากลฮิต 2000",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DX2GTi6o7iOrE?si=i_HTz6LGQqWUok4abRtjCA",
+                isDefault: false
+            },
+            {
+                name: "Kamikaze",
+                url: "https://open.spotify.com/playlist/4Gxj7FDzeFUFsCdTPpC3cY?si=EFINAX31TpmR3lLgmO4Zsw",
+                isDefault: false
+            },
+            {
+                name: "ลูกทุ่งยอดนิยม",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DXasLXGV6xWIC?si=IeXk4wFeRVKxg2HTfICl9g",
+                isDefault: false
+            },
+            {
+                name: "ลูกทุ่งอินดี้ 100 ล้านวิว",
+                url: "https://open.spotify.com/playlist/0T9SEsFpRe4RFGUh2mbTWw?si=LEbC_k9nSsm09GqTwVOooA",
+                isDefault: false
+            },
+            {
+                name: "HITS 2026 สากล",
+                url: "https://open.spotify.com/playlist/5iwkYfnHAGMEFLiHFFGnP4?si=JAqqb6qiR5abnKrZPzNS9Q",
+                isDefault: false
+            },
+            {
+                name: "K-POP ON! (Today's Hit)",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DX9tPFwDMOaN1?si=jL8cF6YJS5qFjWfhr2BMvg",
+                isDefault: false
+            },
+            {
+                name: "เพลงไทยสากล 90",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DX99IunJeNBDi?si=Mb4AbND1R-6fMhUlkv7LTg",
+                isDefault: false
+            },
+            {
+                name: "Pop สากล 90s",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DWVcJK7WY4M52?si=7F_NjDtMRDSv9JKAUfhROQ",
+                isDefault: false
+            },
+            {
+                name: "This Is Taylor Swift",
+                url: "https://open.spotify.com/playlist/37i9dQZF1DX5KpP2LN299J?si=rnmHKa2fTLqL_nRbKt7a6g",
+                isDefault: false
+            },
+            {
+                name: "Pop สากล 2015-2026",
+                url: "https://open.spotify.com/playlist/1WH6WVBwPBz35ZbWsgCpgr?si=aAbM4YdaROi3O3MjdEC_pg",
+                isDefault: false
+            }
+        ];
+        console.log("[Seeder] Checking and seeding preset playlists...");
+        for (const pl of defaultPlaylists) {
+            const exists = await mongodb_1.PresetPlaylist.findOne({ url: pl.url });
+            if (exists) {
+                // Keep name and default status in sync if updated in code
+                if (exists.name !== pl.name || exists.isDefault !== pl.isDefault) {
+                    await mongodb_1.PresetPlaylist.updateOne({ url: pl.url }, { name: pl.name, isDefault: pl.isDefault });
+                }
+                continue;
+            }
+            const plId = musicService_1.default.extractPlaylistId(pl.url);
+            if (plId) {
+                console.log(`[Seeder] Seeding missing playlist from Spotify: ${pl.name}`);
+                // Delay between requests to avoid 429 rate limiting
+                await new Promise(r => setTimeout(r, 1500));
+                const info = await musicService_1.default.fetchPlaylistInfo(plId);
+                if (info) {
+                    await mongodb_1.PresetPlaylist.findOneAndUpdate({ url: pl.url }, {
+                        name: pl.name,
+                        imageUrl: info.imageUrl || "",
+                        trackCount: info.trackCount || 0,
+                        isDefault: pl.isDefault
+                    }, { upsert: true, new: true });
+                    console.log(`[Seeder] Seeded playlist: ${pl.name} (${info.trackCount} tracks)`);
+                }
+                else {
+                    // Fallback if Spotify request fails
+                    await mongodb_1.PresetPlaylist.findOneAndUpdate({ url: pl.url }, {
+                        name: pl.name,
+                        imageUrl: "",
+                        trackCount: 0,
+                        isDefault: pl.isDefault
+                    }, { upsert: true, new: true });
+                    console.warn(`[Seeder] Warning: Could not fetch Spotify info for ${pl.name}. Saved with empty meta.`);
+                }
+            }
+        }
+        console.log("[Seeder] Checking and seeding completed.");
+    }
+    catch (error) {
+        console.error("[Seeder] Error seeding preset playlists:", error.message);
+    }
+};
+const startServer = async () => {
+    // เชื่อมต่อฐานข้อมูล MongoDB
+    await (0, mongodb_1.connectDB)(process.env.MONGO_URI);
+    // สร้างเพลย์ลิสต์ตั้งต้นหากยังไม่มีข้อมูล
+    await seedPresetPlaylists();
+    server.listen(port, () => {
+        console.log(`[Server] Guess The Song Server running on port ${port}`);
+    });
+};
+startServer();

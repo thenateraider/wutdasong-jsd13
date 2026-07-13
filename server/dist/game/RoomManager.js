@@ -63,8 +63,16 @@ class RoomManager {
         if (room.players.length >= room.maxPlayers) {
             return { error: "Room is full." };
         }
-        if (room.password && room.password !== password) {
-            return { error: "Incorrect password." };
+        if (room.password) {
+            if (!password) {
+                return { error: "Password required." };
+            }
+            if (room.password !== password) {
+                return { error: "Incorrect password." };
+            }
+        }
+        if (room.players.some((p) => p.name.trim().toLowerCase() === playerName.trim().toLowerCase())) {
+            return { error: "ชื่อผู้เล่นนี้ซ้ำกับคนในห้อง / Player name is already taken in this lobby." };
         }
         // Add player
         room.players.push({
@@ -116,11 +124,9 @@ class RoomManager {
             return { roomCode: room.code, playerLeftName, roomDeleted: true };
         }
         // If host left, transfer host
-        let hostChanged = false;
         if (room.hostId === playerId) {
             room.hostId = room.players[0].id;
             room.players[0].isReady = true; // New host is ready
-            hostChanged = true;
             console.log(`[RoomManager] Host transferred to ${room.players[0].name} in Room ${room.code}`);
         }
         return {
@@ -129,6 +135,24 @@ class RoomManager {
             roomDeleted: false,
             roomUpdated: room,
         };
+    }
+    returnToLobby(code, requesterId) {
+        const room = this.getRoom(code);
+        if (!room || !room.players.some(p => p.id === requesterId))
+            return false;
+        // Clear game and timers
+        if (room.activeTimer) {
+            clearInterval(room.activeTimer);
+            room.activeTimer = null;
+        }
+        room.game = null;
+        room.state = "lobby";
+        // Reset ready states (host stays ready)
+        room.players.forEach(p => {
+            p.isReady = p.id === room.hostId;
+        });
+        console.log(`[RoomManager] Room ${code} returned to lobby by host.`);
+        return true;
     }
     deleteRoom(code) {
         const room = this.rooms.get(code);
