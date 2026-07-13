@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import musicService, { RoundData, GameTrack } from "./services/musicService";
 import roomManager, { Room } from "./game/RoomManager";
 import GameEngine, { GameSettings } from "./game/GameEngine";
-import { connectDB, Leaderboard, IssueReport, PresetPlaylist } from "./db/mongodb";
+import { connectDB, Leaderboard, IssueReport, PresetPlaylist, CachedSong } from "./db/mongodb";
 
 dotenv.config();
 
@@ -232,6 +232,16 @@ app.post("/api/issues", async (req, res) => {
     res.json({ success: true, message: "Issue reported successfully." });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to submit issue: " + err.message });
+  }
+});
+
+// ล้างแคชรูปปกเพลงทั้งหมดในฐานข้อมูลครั้งเดียวผ่าน Browser (สำหรับแอดมิน)
+app.get("/api/admin/clear-cache", async (req, res) => {
+  try {
+    const result = await CachedSong.deleteMany({});
+    res.json({ success: true, message: `Successfully cleared ${result.deletedCount} songs from database cache.` });
+  } catch (err: any) {
+    res.status(500).json({ error: "Failed to clear cache: " + err.message });
   }
 });
 
@@ -695,10 +705,10 @@ const seedPresetPlaylists = async () => {
 };
 
 const startServer = async () => {
-  // Connect to database first
+  // เชื่อมต่อฐานข้อมูล MongoDB
   await connectDB(process.env.MONGO_URI);
 
-  // Seed playlists if collection is empty
+  // สร้างเพลย์ลิสต์ตั้งต้นหากยังไม่มีข้อมูล
   await seedPresetPlaylists();
 
   server.listen(port, () => {
