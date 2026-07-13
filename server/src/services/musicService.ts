@@ -372,7 +372,7 @@ class MusicService {
           title: cached.title,
           artist: cached.artist,
           genre: seed.genre,
-          previewUrl: cached.previewUrl || seed.spotifyPreviewUrl,
+          previewUrl: cached.previewUrl || seed.spotifyPreviewUrl || "",
           artworkUrl: cached.artworkUrl,
           album: cached.album,
         };
@@ -389,7 +389,7 @@ class MusicService {
           title: seed.title,
           artist: seed.artist,
           genre: seed.genre,
-          previewUrl: seed.spotifyPreviewUrl,
+          previewUrl: seed.spotifyPreviewUrl || "",
           artworkUrl: seed.artworkUrl,
           album: seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album",
         };
@@ -427,7 +427,7 @@ class MusicService {
         title: seed.title,
         artist: seed.artist,
         genre: seed.genre,
-        previewUrl: seed.spotifyPreviewUrl,
+        previewUrl: seed.spotifyPreviewUrl || "",
         artworkUrl,
         album,
       };
