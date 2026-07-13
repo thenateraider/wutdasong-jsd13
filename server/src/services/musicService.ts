@@ -220,6 +220,67 @@ class MusicService {
     return "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?q=80&w=400&auto=format&fit=crop";
   }
 
+  // ค้นหารูปปกและอัลบั้มด้วยชื่อเพลงอย่างเดียว แล้วคัดกรองศิลปินที่ตรงกัน (กรณีสะกดต่างหรือค้นหาเต็มไม่พบ)
+  private async searchFallbackArtwork(title: string, artistName: string): Promise<{ artworkUrl: string; album: string } | null> {
+    const cleanTitle = cleanSearchQuery(title);
+    const cleanArtist = artistName.toLowerCase().replace(/\s/g, "");
+
+    // 1. ลองค้นหาจาก iTunes
+    try {
+      const response = await axios.get("https://itunes.apple.com/search", {
+        params: { term: cleanTitle, entity: "musicTrack", limit: 10 },
+      });
+      const results = response.data.results || [];
+      const matched = results.find((r: any) => {
+        if (!r.artistName) return false;
+        const normalizedResArtist = r.artistName.toLowerCase().replace(/\s/g, "");
+        return normalizedResArtist.includes(cleanArtist) || cleanArtist.includes(normalizedResArtist);
+      });
+
+      if (matched && matched.artworkUrl100) {
+        let artwork = matched.artworkUrl100;
+        if (artwork.endsWith("100x100bb.jpg")) {
+          artwork = artwork.replace("100x100bb.jpg", "400x400bb.jpg");
+        }
+        return {
+          artworkUrl: artwork,
+          album: matched.collectionName || "Single"
+        };
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // 2. ลองค้นหาจาก Spotify
+    try {
+      const token = await this.getSpotifyToken();
+      if (token) {
+        const response = await axios.get("https://api.spotify.com/v1/search", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { q: cleanTitle, type: "track", limit: 10 },
+        });
+        const tracks = response.data.tracks?.items || [];
+        const matched = tracks.find((t: any) => {
+          return t.artists && t.artists.some((a: any) => {
+            const normalizedResArtist = a.name.toLowerCase().replace(/\s/g, "");
+            return normalizedResArtist.includes(cleanArtist) || cleanArtist.includes(normalizedResArtist);
+          });
+        });
+
+        if (matched) {
+          return {
+            artworkUrl: matched.album?.images?.[0]?.url || "",
+            album: matched.album?.name || "Unknown Album"
+          };
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    return null;
+  }
+
 
   // Helper to save a song back to the database cache
   private async cacheResolvedSong(spotifyId: string, track: GameTrack) {
@@ -258,7 +319,8 @@ class MusicService {
     try {
       const cacheKey = seed.id;
       const cached = await CachedSong.findOne({ spotifyId: cacheKey });
-      if (cached) {
+      // หากมี Cache และรูปปกไม่ใช่รูป Fallback แผ่นเสียง ให้ใช้งานได้ทันที
+      if (cached && cached.artworkUrl && !cached.artworkUrl.includes("photo-1614613535308-eb5fbd3d2c17")) {
         console.log(`[MusicService] Cache Hit for: ${seed.artist} - ${seed.title}`);
         return {
           id: seed.id,
@@ -288,7 +350,9 @@ class MusicService {
         };
       }
       
-      const searchQuery = `${seed.artist} ${seed.title}`;
+      // ใช้ชื่ออัลบั้มเพิ่มใน Query ด้วยหากมีข้อมูล
+      const albumSuffix = seed.album && !["spotify playlist", "unknown album", "single"].includes(seed.album.toLowerCase()) ? ` ${seed.album}` : "";
+      const searchQuery = `${seed.artist} ${seed.title}${albumSuffix}`;
       // หากไม่มีรูปปก ให้ค้นหาจาก iTunes เพื่อดึงรูปปกมาใช้งาน
       let itunesForArt = await this.searchITunes(searchQuery);
       
@@ -298,8 +362,14 @@ class MusicService {
         spotifyForArt = await this.searchSpotify(searchQuery);
       }
 
-      const artworkUrl = itunesForArt?.artworkUrl || spotifyForArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist);
-      const album = itunesForArt?.album || spotifyForArt?.album || (seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album");
+      // หากยังค้นหาปกติไม่เจอ ให้สลับใช้การค้นหาสำรองแบบระบุเฉพาะชื่อเพลงแล้วตรวจสอบชื่อศิลปินแทน (เพื่อแก้สะกดไม่ตรง)
+      let fallbackArt = null;
+      if (!itunesForArt?.artworkUrl && !spotifyForArt?.artworkUrl) {
+        fallbackArt = await this.searchFallbackArtwork(seed.title, seed.artist);
+      }
+
+      const artworkUrl = itunesForArt?.artworkUrl || spotifyForArt?.artworkUrl || fallbackArt?.artworkUrl || await this.getArtistFallbackImage(seed.artist);
+      const album = itunesForArt?.album || spotifyForArt?.album || fallbackArt?.album || (seed.album && seed.album !== "Spotify Playlist" ? seed.album : "Unknown Album");
 
       return {
         id: seed.id,
@@ -312,7 +382,9 @@ class MusicService {
       };
     }
 
-    const query = seed.searchQuery || `${seed.artist} ${seed.title}`;
+    // ใช้ชื่ออัลบั้มเพิ่มใน Query สำหรับค้นหาทั่วไปด้วยเช่นกัน
+    const albumSuffix = seed.album && !["spotify playlist", "unknown album", "single"].includes(seed.album.toLowerCase()) ? ` ${seed.album}` : "";
+    const query = seed.searchQuery || `${seed.artist} ${seed.title}${albumSuffix}`;
 
     console.log(`[MusicService] Fetching details for: ${seed.artist} - ${seed.title} (Query: ${query})`);
 
@@ -344,6 +416,17 @@ class MusicService {
           artworkUrl: details?.artworkUrl || itunesDetails.artworkUrl,
           album: details?.album || itunesDetails.album,
         };
+      }
+    }
+
+    // หากได้รายละเอียดแล้วแต่ไม่มีรูปปก ให้ใช้การค้นหาสำรองด้วยชื่อเพลงอย่างเดียวเพื่อตรวจสอบปกอีกรอบ
+    if (details && (!details.artworkUrl || details.artworkUrl === "")) {
+      const fallbackArt = await this.searchFallbackArtwork(seed.title, seed.artist);
+      if (fallbackArt) {
+        details.artworkUrl = fallbackArt.artworkUrl;
+        if (!details.album || details.album === "Unknown Album") {
+          details.album = fallbackArt.album;
+        }
       }
     }
 
