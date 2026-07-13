@@ -88,6 +88,52 @@ app.get("/api/playlists", async (req, res) => {
   }
 });
 
+// Add a new preset playlist dynamically (e.g. from songrequest page)
+app.post("/api/playlists", async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url || typeof url !== "string") {
+      return res.status(400).json({ error: "Missing playlist URL." });
+    }
+
+    const playlistId = musicService.extractPlaylistId(url);
+    if (!playlistId) {
+      return res.status(400).json({ error: "Invalid Spotify playlist URL." });
+    }
+
+    // Standardize URL
+    const cleanUrl = `https://open.spotify.com/playlist/${playlistId}`;
+
+    // Check if it already exists
+    const existing = await PresetPlaylist.findOne({ url: cleanUrl });
+    if (existing) {
+      return res.json({ success: true, message: "Playlist already exists.", playlist: existing });
+    }
+
+    // Fetch details from Spotify
+    const info = await musicService.fetchPlaylistInfo(playlistId);
+    if (!info) {
+      return res.status(404).json({ error: "Could not fetch Spotify playlist info. Please ensure it is a public playlist." });
+    }
+
+    const newPlaylist = new PresetPlaylist({
+      name: info.name,
+      url: cleanUrl,
+      imageUrl: info.imageUrl || "",
+      trackCount: info.trackCount || 0,
+      isDefault: false
+    });
+
+    await newPlaylist.save();
+    console.log(`[Presets] Dynamic playlist added: ${info.name} with ${info.trackCount} tracks.`);
+
+    res.json({ success: true, message: "Playlist added successfully.", playlist: newPlaylist });
+  } catch (error: any) {
+    console.error("[AddPlaylist] Error:", error.message);
+    res.status(500).json({ error: "Failed to add playlist: " + error.message });
+  }
+});
+
 // Single Player Reveal Route
 app.post("/api/singleplayer/reveal", (req, res) => {
   const { questionId } = req.body;
@@ -575,17 +621,20 @@ const seedPresetPlaylists = async () => {
 
     ];
 
-    const urls = defaultPlaylists.map(p => p.url);
-    const existingCount = await PresetPlaylist.countDocuments({ url: { $in: urls } });
-    if (existingCount >= defaultPlaylists.length) {
-      console.log(`[Seeder] All ${defaultPlaylists.length} playlists already in DB. Skipping.`);
-      return;
-    }
-
-    console.log("[Seeder] Seeding preset playlists from Spotify...");
+    console.log("[Seeder] Checking and seeding preset playlists...");
     for (const pl of defaultPlaylists) {
+      const exists = await PresetPlaylist.findOne({ url: pl.url });
+      if (exists) {
+        // Keep name and default status in sync if updated in code
+        if (exists.name !== pl.name || exists.isDefault !== pl.isDefault) {
+          await PresetPlaylist.updateOne({ url: pl.url }, { name: pl.name, isDefault: pl.isDefault });
+        }
+        continue;
+      }
+
       const plId = musicService.extractPlaylistId(pl.url);
       if (plId) {
+        console.log(`[Seeder] Seeding missing playlist from Spotify: ${pl.name}`);
         // Delay between requests to avoid 429 rate limiting
         await new Promise(r => setTimeout(r, 1500));
         const info = await musicService.fetchPlaylistInfo(plId);
@@ -617,7 +666,7 @@ const seedPresetPlaylists = async () => {
         }
       }
     }
-    console.log("[Seeder] Seeding preset playlists completed.");
+    console.log("[Seeder] Checking and seeding completed.");
   } catch (error: any) {
     console.error("[Seeder] Error seeding preset playlists:", error.message);
   }

@@ -1,0 +1,275 @@
+@import url('https://fonts.googleapis.com/css2?family=Playpen+Sans+Thai:wght@100..800&family=Outfit:wght@100..900&display=swap');
+
+:root {
+  --orange-core: #FF6B35;
+  --orange-warm: #FF9F1C;
+  --orange-gold: #FFB347;
+  --orange-soft: #FFD580;
+  --orange-pastel: #FFF0DC;
+  --orange-glow: rgba(255, 107, 53, 0.30);
+  --orange-glow-sm: rgba(255, 107, 53, 0.15);
+
+  --white-pure: #FFFFFF;
+  --white-warm: #FFF8F2;
+  --white-glass: rgba(255, 255, 255, 0.72);
+  --white-glass-sm: rgba(255, 255, 255, 0.50);
+
+  --text-dark: #1C0A00;
+  --text-mid: #7A4010;
+  --text-muted: #B87040;
+  --text-inverse: #FFFFFF;
+
+  --success: #22C55E;
+  --success-light: rgba(34, 197, 94, 0.14);
+  --error: #EF4444;
+  --error-light: rgba(239, 68, 68, 0.12);
+
+  --grad-primary: linear-gradient(135deg, #FF6B35 0%, #FF9F1C 50%, #FFB347 100%);
+  --grad-sunset: linear-gradient(135deg, #FF6B35 0%, #FF9F1C 100%);
+  --grad-gold: linear-gradient(135deg, #FFB347 0%, #FFD580 100%);
+  --grad-bg: linear-gradient(160deg, #FFF0DC 0%, #FFE8CC 40%, #FFF8F2 100%);
+  --grad-text: linear-gradient(135deg, #FF6B35 0%, #FF9F1C 100%);
+
+  --border-glass: 1px solid rgba(255, 255, 255, 0.60);
+  --border-orange: 1px solid rgba(255, 107, 53, 0.25);
+  --border-orange-md: 2px solid rgba(255, 107, 53, 0.30);
+
+  --shadow-sm: 0 2px 12px rgba(255, 107, 53, 0.10), 0 1px 4px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 8px 32px rgba(255, 107, 53, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 60px rgba(255, 107, 53, 0.20), 0 8px 24px rgba(0, 0, 0, 0.10);
+
+  --r-sm: 10px;
+  --r-md: 18px;
+  --r-lg: 24px;
+  --r-xl: 32px;
+  --r-full: 9999px;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --t-fast: all 0.18s var(--ease-spring);
+  --t-med: all 0.28s var(--ease-spring);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Playpen Sans Thai', cursive, sans-serif !important;
+}
+
+body {
+  background: var(--grad-bg);
+  color: var(--text-dark);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  max-width: 560px;
+}
+
+.card {
+  background: var(--white-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: var(--border-glass);
+  border-radius: var(--r-lg);
+  padding: 30px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  transition: var(--t-med);
+}
+
+.gradient-title {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 900;
+  font-size: 2.2rem;
+  text-align: center;
+  letter-spacing: -0.5px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  text-align: center;
+  margin-top: -16px;
+  margin-bottom: 8px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-mid);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px;
+  color: var(--orange-core);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-input {
+  width: 100%;
+  padding: 14px 14px 14px 44px;
+  border: var(--border-orange);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.65);
+  font-size: 0.95rem;
+  color: var(--text-dark);
+  outline: none;
+  transition: var(--t-fast);
+}
+
+.text-input:focus {
+  border-color: var(--orange-core);
+  background: var(--white-pure);
+  box-shadow: 0 0 0 4px var(--orange-glow-sm);
+}
+
+.btn-primary {
+  background: var(--grad-sunset);
+  color: var(--text-inverse);
+  border: none;
+  border-radius: var(--r-md);
+  padding: 14px 28px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: var(--t-fast);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), 0 0 15px rgba(255, 107, 53, 0.4);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.status-alert {
+  border-radius: var(--r-md);
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  animation: slideIn 0.3s var(--ease-spring);
+}
+
+.status-success {
+  background: var(--success-light);
+  color: var(--success);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.status-error {
+  background: var(--error-light);
+  color: var(--error);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.playlist-preview-card {
+  display: flex;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.85);
+  border: var(--border-orange-md);
+  border-radius: var(--r-md);
+  padding: 16px;
+  animation: slideIn 0.3s var(--ease-spring);
+  box-shadow: var(--shadow-sm);
+}
+
+.playlist-cover {
+  width: 70px;
+  height: 70px;
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: var(--orange-pastel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--orange-core);
+}
+
+.playlist-details {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.playlist-name {
+  font-family: 'Outfit', sans-serif !important;
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-dark);
+  line-height: 1.3;
+}
+
+.playlist-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

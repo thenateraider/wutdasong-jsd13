@@ -10,7 +10,7 @@ interface SinglePlayerSetupProps {
 }
 
 export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlayerSetupProps) {
-  const { language, presetPlaylists, selectedPlaylistInfo, setSelectedPlaylist } = useGameStore();
+  const { language, presetPlaylists, selectedPlaylistInfo, setSelectedPlaylist, fetchPresetPlaylists } = useGameStore();
   const [numSongs, setNumSongs] = useState<number>(10);
   const [difficulty, setDifficulty] = useState<"Easy" | "Hard">("Easy");
   const clipDuration = 5;
@@ -23,6 +23,9 @@ export function SinglePlayerSetup({ onBack, onStart, playClickSFX }: SinglePlaye
   const [customError, setCustomError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Fetch latest presets on mount
+    fetchPresetPlaylists();
+    
     // Clear and reset to default preset on mount
     setCustomUrl("");
     setCustomError(null);
