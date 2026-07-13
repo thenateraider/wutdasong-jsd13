@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useGameStore, GameSettings } from "../store/gameStore";
-import { ArrowLeft, Play, Copy, Check, User, Lock, X, Music2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
+import { ArrowLeft, Play, Copy, Check, User, Lock, X, Music2, CheckCircle2, AlertCircle, Loader2, Search } from "lucide-react";
 import { translations } from "../utils/translations";
 
 interface MultiplayerLobbyProps {
@@ -1433,8 +1433,8 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                     </div>
                   </button>
                 ) : (
-                  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ display: "flex", gap: "8px", position: "relative", alignItems: "center" }}>
+                  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "8px" }}>
+                    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
                       <div style={{ position: "relative", flex: 1 }}>
                         <input
                           type="text"
@@ -1445,7 +1445,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                             setEditCustomError(null);
                           }}
                           className="input-text"
-                          style={{ fontSize: "0.82rem", paddingRight: "36px" }}
+                          style={{ fontSize: "0.92rem", padding: "12px 42px 12px 14px", height: "46px" }}
                           disabled={editCustomLoading}
                         />
                         {editCustomUrl && (
@@ -1456,7 +1456,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                             }}
                             style={{
                               position: "absolute",
-                              right: "8px",
+                              right: "12px",
                               top: "50%",
                               transform: "translateY(-50%)",
                               background: "none",
@@ -1468,7 +1468,7 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                               alignItems: "center"
                             }}
                           >
-                            <X size={14} />
+                            <X size={16} />
                           </button>
                         )}
                       </div>
@@ -1476,26 +1476,109 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                         onClick={handleEditCustomUrlSearch}
                         disabled={editCustomLoading || !editCustomUrl.trim()}
                         className="btn btn-primary ripple"
+                        title={language === "th" ? "ค้นหา" : "Search"}
                         style={{
-                          padding: "8px 12px",
-                          fontSize: "0.8rem",
-                          borderRadius: "10px",
-                          fontWeight: 800,
-                          whiteSpace: "nowrap",
-                          height: "100%",
+                          width: "46px",
+                          height: "46px",
+                          flexShrink: 0,
+                          borderRadius: "12px",
                           display: "flex",
                           alignItems: "center",
-                          gap: "4px"
+                          justifyContent: "center",
+                          padding: 0
                         }}
                       >
-                        {editCustomLoading ? <Loader2 size={12} className="animate-spin" /> : "🔍"}
-                        <span>{language === "th" ? "ค้นหา" : "Search"}</span>
+                        {editCustomLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={18} />}
                       </button>
                     </div>
                     {editCustomError && (
                       <p style={{ fontSize: "0.75rem", color: "var(--error)", margin: "4px 0 0 0", fontWeight: 600 }}>
                         ❌ {editCustomError}
                       </p>
+                    )}
+
+                    {/* แสดงข้อมูล Playlist ที่ดึงมาได้ก่อนกดยืนยันบันทึก */}
+                    {selectedPlaylistInfo && !editCustomError && !editCustomLoading && editCustomUrl.trim() && (
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px",
+                          padding: "12px",
+                          background: "rgba(34,197,94,0.06)",
+                          border: "1.5px solid rgba(34,197,94,0.35)",
+                          borderRadius: "12px",
+                          marginTop: "4px",
+                          animation: "springPop 0.3s ease-out forwards"
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 48,
+                            height: 48,
+                            borderRadius: "8px",
+                            overflow: "hidden",
+                            flexShrink: 0,
+                            background: "var(--orange-pastel)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                          }}
+                        >
+                          {selectedPlaylistInfo.imageUrl ? (
+                            <img
+                              src={selectedPlaylistInfo.imageUrl}
+                              alt="Playlist cover"
+                              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                            />
+                          ) : (
+                            <Music2 size={20} style={{ color: "var(--orange-core)" }} />
+                          )}
+                        </div>
+
+                        <div style={{ flex: 1, minWidth: 0, textAlign: "left" }}>
+                          <div
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              background: "linear-gradient(135deg,#1DB954,#17a74a)",
+                              color: "#fff",
+                              borderRadius: "10px",
+                              padding: "1px 6px",
+                              fontSize: "0.55rem",
+                              fontWeight: 800,
+                              marginBottom: "3px",
+                            }}
+                          >
+                            ♪ Spotify
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.85rem",
+                              fontWeight: 800,
+                              color: "var(--text-dark)",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              lineHeight: 1.3
+                            }}
+                          >
+                            {selectedPlaylistInfo.name}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "0.7rem",
+                              fontWeight: 700,
+                              color: "var(--text-muted)",
+                            }}
+                          >
+                            🎵 {selectedPlaylistInfo.trackCount} {language === "th" ? "เพลง" : "songs"}
+                          </div>
+                        </div>
+
+                        <CheckCircle2 size={18} style={{ color: "var(--success)", flexShrink: 0 }} />
+                      </div>
                     )}
                   </div>
                 )}
