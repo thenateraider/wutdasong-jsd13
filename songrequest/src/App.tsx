@@ -40,6 +40,27 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [url]);
 
+  const getErrorMessage = (err: any, fallback: string): string => {
+    const data = err.response?.data;
+    if (!data) {
+      return err.message || fallback;
+    }
+    if (typeof data === "string") {
+      return data;
+    }
+    const errorObj = data.error;
+    if (!errorObj) {
+      return fallback;
+    }
+    if (typeof errorObj === "string") {
+      return errorObj;
+    }
+    if (typeof errorObj === "object") {
+      return errorObj.message || errorObj.code || JSON.stringify(errorObj);
+    }
+    return fallback;
+  };
+
   const fetchInfo = async (inputUrl: string) => {
     if (!inputUrl) return;
     setError(null);
@@ -63,8 +84,7 @@ export default function App() {
       }
     } catch (err: any) {
       setError(
-        err.response?.data?.error || 
-        "ไม่พบข้อมูลเพลย์ลิสต์นี้ กรุณาตรวจสอบว่าเป็นเพลย์ลิสต์สาธารณะ (Public)"
+        getErrorMessage(err, "ไม่พบข้อมูลเพลย์ลิสต์นี้ กรุณาตรวจสอบว่าเป็นเพลย์ลิสต์สาธารณะ (Public)")
       );
     } finally {
       setLoading(false);
@@ -97,7 +117,7 @@ export default function App() {
         setError(res.data.error || "เกิดข้อผิดพลาดในการบันทึกเพลย์ลิสต์");
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์");
+      setError(getErrorMessage(err, "เกิดข้อผิดพลาดในการเชื่อมต่อเซิร์ฟเวอร์"));
     } finally {
       setSubmitting(false);
     }
