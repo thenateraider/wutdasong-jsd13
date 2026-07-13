@@ -9,6 +9,8 @@ interface PlaylistInfo {
   trackCount: number;
 }
 
+const API_URL = (import.meta as any).env.VITE_API_URL || ((import.meta as any).env.DEV ? "http://localhost:5000" : "");
+
 export default function App() {
   const [url, setUrl] = useState("");
   const [playlistInfo, setPlaylistInfo] = useState<PlaylistInfo | null>(null);
@@ -71,7 +73,7 @@ export default function App() {
 
     try {
       // Endpoint /api/playlist-info
-      const res = await axios.get("/api/playlist-info", {
+      const res = await axios.get(`${API_URL}/api/playlist-info`, {
         params: { url: inputUrl }
       });
       if (res.data) {
@@ -104,7 +106,7 @@ export default function App() {
     setSuccess(null);
 
     try {
-      const res = await axios.post("/api/playlists", { url: url.trim() });
+      const res = await axios.post(`${API_URL}/api/playlists`, { url: url.trim() });
       if (res.data.success) {
         setSuccess(
           `เพิ่มเพลย์ลิสต์ "${res.data.playlist.name}" เข้าสู่เกมเรียบร้อยแล้ว!`
