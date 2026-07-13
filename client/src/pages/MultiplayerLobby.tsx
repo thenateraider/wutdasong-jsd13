@@ -99,6 +99,39 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
     return () => clearTimeout(timer);
   }, [customUrl, customLoading]);
 
+  // ระบบ Auto-detect ลิงก์ Spotify เมื่อกด Paste ในช่องแก้ไขการตั้งค่าห้อง
+  const lastEditAutoUrl = useRef("");
+  useEffect(() => {
+    const trimmed = editCustomUrl.trim();
+    if (!trimmed.toLowerCase().includes("spotify") || editCustomLoading || trimmed.length < 20) return;
+    if (lastEditAutoUrl.current === trimmed) return;
+    const timer = setTimeout(() => {
+      lastEditAutoUrl.current = trimmed;
+      handleEditCustomUrlSearch();
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [editCustomUrl, editCustomLoading]);
+
+  const handleEditCustomUrlSearch = async () => {
+    const trimmed = editCustomUrl.trim();
+    if (!trimmed) return;
+
+    if (!trimmed.toLowerCase().includes("spotify")) {
+      setEditCustomError(language === "th" ? "กรุณาใส่ลิงก์ Spotify Playlist ที่ถูกต้อง" : "Please enter a valid Spotify Playlist URL");
+      return;
+    }
+
+    setEditCustomLoading(true);
+    setEditCustomError(null);
+    try {
+      await setSelectedPlaylist(trimmed);
+    } catch (err) {
+      setEditCustomError(language === "th" ? "ดึงข้อมูลล้มเหลว กรุณาตรวจสอบว่าเพลย์ลิสต์เป็น Public" : "Failed to fetch playlist. Make sure it is public.");
+    } finally {
+      setEditCustomLoading(false);
+    }
+  };
+
   const handleCopyCode = () => {
     if (roomCode) {
       navigator.clipboard.writeText(roomCode);
@@ -1400,17 +1433,67 @@ export function MultiplayerLobby({ onBack }: MultiplayerLobbyProps) {
                     </div>
                   </button>
                 ) : (
-                  <div style={{ marginTop: "10px" }}>
-                    <input
-                      type="text"
-                      placeholder="https://open.spotify.com/playlist/..."
-                      value={editCustomUrl}
-                      onChange={(e) => setEditCustomUrl(e.target.value)}
-                      className="input-text"
-                      style={{ fontSize: "0.82rem" }}
-                    />
+                  <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                    <div style={{ display: "flex", gap: "8px", position: "relative", alignItems: "center" }}>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <input
+                          type="text"
+                          placeholder="https://open.spotify.com/playlist/..."
+                          value={editCustomUrl}
+                          onChange={(e) => {
+                            setEditCustomUrl(e.target.value);
+                            setEditCustomError(null);
+                          }}
+                          className="input-text"
+                          style={{ fontSize: "0.82rem", paddingRight: "36px" }}
+                          disabled={editCustomLoading}
+                        />
+                        {editCustomUrl && (
+                          <button
+                            onClick={() => {
+                              setEditCustomUrl("");
+                              setEditCustomError(null);
+                            }}
+                            style={{
+                              position: "absolute",
+                              right: "8px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              background: "none",
+                              border: "none",
+                              cursor: "pointer",
+                              color: "var(--text-muted)",
+                              padding: "4px",
+                              display: "flex",
+                              alignItems: "center"
+                            }}
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleEditCustomUrlSearch}
+                        disabled={editCustomLoading || !editCustomUrl.trim()}
+                        className="btn btn-primary ripple"
+                        style={{
+                          padding: "8px 12px",
+                          fontSize: "0.8rem",
+                          borderRadius: "10px",
+                          fontWeight: 800,
+                          whiteSpace: "nowrap",
+                          height: "100%",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px"
+                        }}
+                      >
+                        {editCustomLoading ? <Loader2 size={12} className="animate-spin" /> : "🔍"}
+                        <span>{language === "th" ? "ค้นหา" : "Search"}</span>
+                      </button>
+                    </div>
                     {editCustomError && (
-                      <p style={{ fontSize: "0.75rem", color: "var(--error)", marginTop: "4px", margin: "4px 0 0 0" }}>
+                      <p style={{ fontSize: "0.75rem", color: "var(--error)", margin: "4px 0 0 0", fontWeight: 600 }}>
                         ❌ {editCustomError}
                       </p>
                     )}
