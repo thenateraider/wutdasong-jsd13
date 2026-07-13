@@ -17,7 +17,19 @@ app.use(cors());
 app.use(express.json());
 
 // In-memory cache for singleplayer rounds to keep answers secure from clients
-const singleplayerAnswers = new Map<string, GameTrack>();
+// Map key: questionId, value: { answer, timestamp }
+const singleplayerAnswers = new Map<string, { answer: GameTrack, timestamp: number }>();
+
+// Cleanup stale answers every hour to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of singleplayerAnswers.entries()) {
+    // If older than 2 hours (2 * 60 * 60 * 1000)
+    if (now - value.timestamp > 7200000) {
+      singleplayerAnswers.delete(key);
+    }
+  }
+}, 3600000);
 
 // Test endpoint
 app.get("/api/health", (req, res) => {
@@ -40,7 +52,10 @@ app.post("/api/singleplayer/start", async (req, res) => {
 
     // Store answers in cache, scrub them from the response
     const clientRounds = rounds.map((round) => {
-      singleplayerAnswers.set(round.questionId, round.secretAnswer);
+      singleplayerAnswers.set(round.questionId, {
+        answer: round.secretAnswer,
+        timestamp: Date.now()
+      });
       return {
         roundNumber: round.roundNumber,
         questionId: round.questionId,
@@ -141,15 +156,15 @@ app.post("/api/singleplayer/reveal", (req, res) => {
     return res.status(400).json({ error: "Missing questionId." });
   }
 
-  const answer = singleplayerAnswers.get(questionId);
-  if (!answer) {
+  const cached = singleplayerAnswers.get(questionId);
+  if (!cached) {
     return res.status(404).json({ error: "Answer not found or already revealed." });
   }
 
   // Clean up cache to prevent memory leaks
   singleplayerAnswers.delete(questionId);
 
-  res.json({ answer });
+  res.json({ answer: cached.answer });
 });
 
 // Leaderboard: Fetch top 100 players (or paginated) filtered by songCount
@@ -226,6 +241,8 @@ const io = new Server(server, {
     origin: "*", // Allow all during development
     methods: ["GET", "POST"],
   },
+  pingInterval: 25000,
+  pingTimeout: 60000,
 });
 
 // Helper: Broadcast room updates
@@ -332,6 +349,11 @@ const revealMultiplayerAnswers = (roomCode: string) => {
 
 io.on("connection", (socket: Socket) => {
   console.log(`[Socket] Player connected: ${socket.id}`);
+
+  socket.on("verify_room", (data: { code: string }, callback: (exists: boolean) => void) => {
+    const room = roomManager.getRoom(data.code);
+    callback(!!room);
+  });
 
   // Create Room
   socket.on("create_room", (data: {

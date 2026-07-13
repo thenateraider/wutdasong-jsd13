@@ -63,6 +63,7 @@ export interface ChatMessage {
 interface GameState {
   // Connection and client
   socket: Socket | null;
+  isConnected: boolean;
   playerName: string;
   playerAvatar: string;
   
@@ -143,6 +144,7 @@ const getBrowserLanguage = (): "th" | "en" => {
 
 export const useGameStore = create<GameState>((set, get) => ({
   socket: null,
+  isConnected: true,
   playerName: localStorage.getItem("wutdasong_name") || "",
   playerAvatar: localStorage.getItem("wutdasong_avatar") || "🎧",
   
@@ -213,9 +215,33 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (existingSocket) return existingSocket;
 
     const socket = io(API_URL);
+    let heartbeatInterval: any;
 
     socket.on("connect", () => {
       console.log("[Socket] Connected to server.");
+      set({ isConnected: true });
+
+      // Keep server awake while client is connected
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      heartbeatInterval = setInterval(async () => {
+        try {
+          await axios.get(`${API_URL}/api/health`, { timeout: 5000 });
+        } catch (e) {
+          // ignore
+        }
+      }, 10 * 60 * 1000); // 10 minutes
+
+      // Verify room existence upon reconnection if we were in one
+      const currentRoomCode = get().roomCode;
+      if (currentRoomCode) {
+        socket.emit("verify_room", { code: currentRoomCode }, (exists: boolean) => {
+          if (!exists) {
+            alert("The room was closed or the server restarted. Returning to lobby.");
+            set({ socket: null, roomCode: null, isHost: false, status: "home", chatMessages: [], countdown: null });
+            sessionStorage.setItem("wutdasong_status", "home");
+          }
+        });
+      }
     });
 
     socket.on("room_updated", (room: any) => {
@@ -313,6 +339,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     socket.on("disconnect", () => {
       console.log("[Socket] Disconnected from server.");
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      
       const currentStatus = get().status;
       const insideRoom = get().roomCode !== null;
       const nextStatus = insideRoom ? "home" : currentStatus;
@@ -322,7 +350,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         sessionStorage.removeItem("wutdasong_mode");
       }
       
-      set({ socket: null, roomCode: null, isHost: false, status: nextStatus, countdown: null });
+      set({ socket: null, roomCode: null, isHost: false, status: nextStatus, countdown: null, isConnected: false });
     });
 
     set({ socket });
@@ -442,7 +470,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   startSingleplayer: async (settings) => {
     set({ loading: true, loadingMessage: "Loading songs from API...", settings });
     try {
-      const response = await axios.post(`${API_URL}/api/singleplayer/start`, { settings });
+      const response = await axios.post(`${API_URL}/api/singleplayer/start`, { settings }, { timeout: 30000 });
       set({
         rounds: response.data.rounds,
         currentRoundIdx: 0,
@@ -461,7 +489,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       });
     } catch (error: any) {
       set({ loading: false, loadingMessage: null });
-      alert(error.response?.data?.error || "Error connecting to backend server.");
+      alert(error.response?.data?.error || "Server is waking up or too busy. Please try again.");
     }
   },
 
@@ -478,7 +506,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     try {
       const response = await axios.post(`${API_URL}/api/singleplayer/reveal`, {
         questionId: currentRound.questionId
-      });
+      }, { timeout: 15000 });
       
       const answer: GameTrack = response.data.answer;
       const isCorrect = selectedChoiceId === answer.id;
@@ -517,7 +545,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }));
     } catch (error) {
       set({ loading: false });
-      alert("Error revealing round details.");
+      alert("Error revealing round details. Server might be restarting.");
     }
   },
 
@@ -540,11 +568,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ leaderboardLoading: true });
     try {
       const res = await axios.get(`${API_URL}/api/leaderboard`, {
-        params: { songCount }
+        params: { songCount },
+        timeout: 30000
       });
       set({ leaderboard: res.data });
     } catch (err) {
       console.error("[Leaderboard] Error fetching leaderboard:", err);
+      // Let the UI handle empty or error states based on length, just don't hang
     } finally {
       set({ leaderboardLoading: false });
     }

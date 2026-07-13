@@ -18,6 +18,7 @@ export function App() {
     loading,
     loadingMessage,
     settings,
+    isConnected,
     setMode,
     setStatus,
     startSingleplayer,
@@ -146,6 +147,34 @@ export function App() {
       >
         <Settings size={20} />
       </button>
+
+      {/* Connection Banner */}
+      {!isConnected && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          backgroundColor: "#EF4444",
+          color: "white",
+          textAlign: "center",
+          padding: "6px 10px",
+          fontSize: "0.85rem",
+          fontWeight: 700,
+          zIndex: 100,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.1)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "8px",
+          animation: "slideDown 0.3s ease-out"
+        }}>
+          <span className="animate-pulse">🔴</span>
+          {language === "th" 
+            ? "กำลังเชื่อมต่อเซิร์ฟเวอร์... (หากเซิร์ฟเวอร์หลับอาจใช้เวลา 1 นาที)" 
+            : "Reconnecting to server... (May take 1 minute if server is asleep)"}
+        </div>
+      )}
 
       <main className="main-content" >
         {status === "home" && (

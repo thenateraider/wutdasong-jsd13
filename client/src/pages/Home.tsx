@@ -539,7 +539,17 @@ export function Home({
             </h2>
 
             {/* Song Count Tab Switcher */}
-            <div className="setup-option-selector" style={{ marginBottom: "16px", gridTemplateColumns: "1fr 1fr 1fr", gridAutoFlow: "unset" }}>
+            <div className="setup-option-selector" style={{ 
+              marginBottom: "16px", 
+              gridTemplateColumns: "1fr 1fr 1fr", 
+              gridAutoFlow: "unset",
+              position: "sticky",
+              top: 0,
+              zIndex: 10,
+              background: "white",
+              paddingBottom: "10px",
+              paddingTop: "10px"
+            }}>
               {([5, 10, 20] as const).map((num) => (
                 <button
                   key={num}
@@ -572,8 +582,8 @@ export function Home({
                   {language === "th" ? "ยังไม่มีสถิติถูกบันทึก เล่นสักตาเลย!" : "No records yet. Play a game!"}
                 </div>
               ) : (
-                leaderboard.slice(leaderboardPage * 20, (leaderboardPage + 1) * 20).map((row, idx) => {
-                  const globalIndex = leaderboardPage * 20 + idx;
+                leaderboard.slice(leaderboardPage * 5, (leaderboardPage + 1) * 5).map((row, idx) => {
+                  const globalIndex = leaderboardPage * 5 + idx;
                   let medal = `${globalIndex + 1}`;
                   if (globalIndex === 0) medal = "🥇";
                   else if (globalIndex === 1) medal = "🥈";
@@ -634,7 +644,7 @@ export function Home({
             </div>
 
             {/* Pagination Controls */}
-            {leaderboard.length > 20 && (
+            {leaderboard.length > 5 && (
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "14px", paddingTop: "10px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
                 <button
                   disabled={leaderboardPage === 0}
@@ -645,13 +655,13 @@ export function Home({
                   {language === "th" ? "◀ ก่อนหน้า" : "◀ Prev"}
                 </button>
                 <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "var(--text-muted)" }}>
-                  {language === "th" ? "หน้า" : "Page"} {leaderboardPage + 1} / {Math.ceil(leaderboard.length / 20)}
+                  {language === "th" ? "หน้า" : "Page"} {leaderboardPage + 1} / {Math.ceil(leaderboard.length / 5)}
                 </span>
                 <button
-                  disabled={(leaderboardPage + 1) * 20 >= leaderboard.length}
+                  disabled={(leaderboardPage + 1) * 5 >= leaderboard.length}
                   onClick={() => { playClickSFX(); setLeaderboardPage(p => p + 1); }}
                   className="btn"
-                  style={{ width: "auto", padding: "6px 14px", fontSize: "0.80rem", background: "rgba(0,0,0,0.05)", color: "var(--text-dark)", cursor: (leaderboardPage + 1) * 20 >= leaderboard.length ? "not-allowed" : "pointer", opacity: (leaderboardPage + 1) * 20 >= leaderboard.length ? 0.4 : 1 }}
+                  style={{ width: "auto", padding: "6px 14px", fontSize: "0.80rem", background: "rgba(0,0,0,0.05)", color: "var(--text-dark)", cursor: (leaderboardPage + 1) * 5 >= leaderboard.length ? "not-allowed" : "pointer", opacity: (leaderboardPage + 1) * 5 >= leaderboard.length ? 0.4 : 1 }}
                 >
                   {language === "th" ? "ถัดไป ▶" : "Next ▶"}
                 </button>
