@@ -35,7 +35,10 @@ const LeaderboardSchema: Schema = new Schema({
   date: { type: Date, default: Date.now },
 });
 
-LeaderboardSchema.index({ name: 1, songCount: 1 }, { unique: true });
+// Indexes for optimal query performance
+LeaderboardSchema.index({ name: 1, songCount: 1 }, { unique: true }); // For upserts
+LeaderboardSchema.index({ name: 1 }); // For name existence checks (much faster than scan)
+LeaderboardSchema.index({ songCount: 1, score: -1 }); // For leaderboard rankings
 
 export const Leaderboard = mongoose.model<ILeaderboard>("Leaderboard", LeaderboardSchema);
 

@@ -101,11 +101,14 @@ const incrementPlaylistPlayCount = async (playlistUrl: string) => {
     if (!playlistId) return;
     const cleanUrl = `https://open.spotify.com/playlist/${playlistId}`;
     
-    // ค้นหาและบวกจำนวนครั้งที่เล่น (นับรวม custom playlist หากมี URL ตรงกับ preset)
-    const playlist = await PresetPlaylist.findOne({ url: cleanUrl });
+    // Atomic increment using $inc operator - much faster than findOne + save
+    const playlist = await PresetPlaylist.findOneAndUpdate(
+      { url: cleanUrl },
+      { $inc: { playCount: 1 } },
+      { new: true }
+    );
+    
     if (playlist) {
-      playlist.playCount = (playlist.playCount || 0) + 1;
-      await playlist.save();
       console.log(`[PlayCount] Incremented playCount for: ${playlist.name} (Now: ${playlist.playCount})`);
     } else {
       console.log(`[PlayCount] Custom playlist URL not in presets: ${cleanUrl}`);
@@ -131,7 +134,7 @@ app.post("/api/playlists/increment-play", async (req, res) => {
 // Get preset playlists from MongoDB
 app.get("/api/playlists", async (req, res) => {
   try {
-    const playlists = await PresetPlaylist.find().sort({ isDefault: -1, name: 1 });
+    const playlists = await PresetPlaylist.find().sort({ isDefault: -1, name: 1 }).lean();
     res.json(playlists);
   } catch (err: any) {
     res.status(500).json({ error: "Failed to retrieve playlists: " + err.message });
@@ -202,30 +205,52 @@ app.post("/api/singleplayer/reveal", (req, res) => {
   res.json({ answer: cached.answer });
 });
 
-// Leaderboard: Fetch top 100 players (or paginated) filtered by songCount
+// Leaderboard: Fetch paginated top players filtered by songCount
 app.get("/api/leaderboard", async (req, res) => {
   try {
     const songCount = parseInt(req.query.songCount as string) || 10;
-    const list = await Leaderboard.find({ songCount }).sort({ score: -1 }).limit(100);
+    const page = Math.max(0, parseInt(req.query.page as string) || 0);
+    const pageSize = 20; // Fetch 20 per page instead of 100
+    
+    // Validate songCount to prevent injection
+    if (![5, 10, 20].includes(songCount)) {
+      return res.status(400).json({ error: "Invalid songCount. Must be 5, 10, or 20." });
+    }
+    
+    const list = await Leaderboard
+      .find({ songCount })
+      .sort({ score: -1 })
+      .skip(page * pageSize)
+      .limit(pageSize)
+      .lean(); // Excludes __v and other mongoose metadata for faster response
+    
     res.json(list);
   } catch (err: any) {
     res.status(500).json({ error: "Failed to fetch leaderboard: " + err.message });
   }
 });
 
-// Leaderboard: Check if username already exists
+// Leaderboard: Check if username already exists (optimized with lean + projection)
 app.get("/api/leaderboard/check-name", async (req, res) => {
   try {
     const { name } = req.query;
     if (!name) return res.json({ exists: false });
-    const count = await Leaderboard.countDocuments({ name: String(name).trim() });
-    res.json({ exists: count > 0 });
+    
+    // Use findOne().lean() instead of countDocuments() - much faster
+    // Only fetch _id field (projection) to minimize data transfer
+    const doc = await Leaderboard
+      .findOne({ name: String(name).trim() })
+      .select("_id")
+      .lean();
+    
+    res.json({ exists: !!doc });
   } catch (err: any) {
     res.status(500).json({ error: "Failed to check name: " + err.message });
   }
 });
 
 // Leaderboard: Post a new score, scoped by name AND songCount.
+// Uses atomic findOneAndUpdate (upsert) instead of two separate operations
 // Only the highest score for a player in a given song-count mode is kept.
 app.post("/api/leaderboard", async (req, res) => {
   try {
@@ -235,37 +260,37 @@ app.post("/api/leaderboard", async (req, res) => {
     const incomingMaxCombo = typeof maxCombo === "number" ? maxCombo : 1;
     const safeAvatar = typeof avatar === "string" ? avatar : "";
 
+    // Input validation
     if (!trimmedName || typeof score !== "number") {
       return res.status(400).json({ error: "Name and score are required." });
     }
-
-    const existingRecord = await Leaderboard.findOne({ name: trimmedName, songCount: targetSongCount });
-
-    let record;
-    if (!existingRecord) {
-      record = await Leaderboard.create({
-        name: trimmedName,
-        avatar: safeAvatar,
-        score,
-        songCount: targetSongCount,
-        maxCombo: incomingMaxCombo,
-        date: new Date()
-      });
-    } else if (score > existingRecord.score) {
-      existingRecord.avatar = safeAvatar;
-      existingRecord.score = score;
-      existingRecord.maxCombo = incomingMaxCombo;
-      existingRecord.date = new Date();
-      record = await existingRecord.save();
-    } else {
-      if (!existingRecord.avatar && safeAvatar) {
-        existingRecord.avatar = safeAvatar;
-      }
-      if (incomingMaxCombo > existingRecord.maxCombo) {
-        existingRecord.maxCombo = incomingMaxCombo;
-      }
-      record = await existingRecord.save();
+    if (![5, 10, 20].includes(targetSongCount)) {
+      return res.status(400).json({ error: "Invalid songCount." });
     }
+    if (score < 0) {
+      return res.status(400).json({ error: "Score must be non-negative." });
+    }
+
+    // Single atomic operation: Update if exists and score is higher, else create
+    // Using $max operator to update only if incoming values are larger
+    const record = await Leaderboard.findOneAndUpdate(
+      { name: trimmedName, songCount: targetSongCount },
+      {
+        $set: {
+          ...(safeAvatar && { avatar: safeAvatar }), // Only update if provided
+          date: new Date()
+        },
+        $max: {
+          score, // Update only if incoming score is higher
+          maxCombo: incomingMaxCombo
+        }
+      },
+      {
+        upsert: true, // Create if doesn't exist
+        new: true, // Return updated document
+        lean: true // Optimize response
+      }
+    );
 
     res.json({ success: true, record });
   } catch (err: any) {

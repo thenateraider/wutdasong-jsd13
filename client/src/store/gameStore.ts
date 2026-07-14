@@ -568,8 +568,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ leaderboardLoading: true });
     try {
       const res = await axios.get(`${API_URL}/api/leaderboard`, {
-        params: { songCount },
-        timeout: 30000
+        params: { songCount, page: 0 },
+        timeout: 10000
       });
       set({ leaderboard: res.data });
     } catch (err) {
