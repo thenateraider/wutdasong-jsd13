@@ -30,8 +30,53 @@ export function App() {
     fetchPresetPlaylists,
   } = useGameStore();
 
+  const [serverState, setServerState] = useState<"checking" | "asleep" | "awake">("checking");
+  const [wakeProgress, setWakeProgress] = useState(0); // เปอร์เซ็นต์ความคืบหน้าการปลุกเซิร์ฟเวอร์
+
   useEffect(() => {
-    fetchPresetPlaylists();
+    let active = true;
+    let progressInterval: any;
+
+    // เริ่มแทร็กเปอร์เซ็นต์ความคืบหน้าเพื่อให้ผู้ใช้ทราบสถานะ
+    const startProgressTracker = () => {
+      setWakeProgress(0);
+      progressInterval = setInterval(() => {
+        setWakeProgress((prev) => {
+          if (prev >= 95) return prev; // สูงสุดที่ 95% จนกว่าเซิร์ฟเวอร์จะตอบกลับจริงๆ
+          return prev + 1;
+        });
+      }, 500); // 95% ในเวลาประมาณ 47 วินาที (สอดคล้องกับ Render Cold Start ~ 50 วินาที)
+    };
+
+    const checkHealth = async () => {
+      try {
+        // ทดสอบการเชื่อมต่อด้วย timeout สั้นๆ
+        await axios.get(`${API_URL}/api/health`, { timeout: 2000 });
+        if (active) {
+          clearInterval(progressInterval);
+          setWakeProgress(100);
+          // หลังจากเซิร์ฟเวอร์ตอบกลับ ยืนยันว่าตื่นแล้ว
+          setServerState("awake");
+          fetchPresetPlaylists();
+        }
+      } catch (err) {
+        if (active) {
+          setServerState("asleep");
+          if (!progressInterval) {
+            startProgressTracker();
+          }
+          // ลองเชื่อมต่อใหม่ทุกๆ 2.5 วินาที
+          setTimeout(checkHealth, 2500);
+        }
+      }
+    };
+
+    checkHealth();
+
+    return () => {
+      active = false;
+      if (progressInterval) clearInterval(progressInterval);
+    };
   }, []);
 
   const {
@@ -177,7 +222,104 @@ export function App() {
       )}
 
       <main className="main-content" >
-        {status === "home" && (
+        {serverState !== "awake" ? (
+          <div
+            className="flex flex-col items-center justify-center text-center animate-fade-in"
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              padding: "40px 20px",
+              minHeight: "55vh",
+              width: "100%",
+              maxWidth: "440px",
+              margin: "40px auto",
+              background: "rgba(255, 255, 255, 0.08)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              borderRadius: "24px",
+              border: "1px solid rgba(255, 255, 255, 0.12)",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              color: "#ffffff"
+            }}
+          >
+            <style>{`
+              @keyframes spin-record {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+              }
+            `}</style>
+            
+            {/* วงล้อแผ่นเสียงหมุนแสดงโหลดดิ้งพรีเมียม */}
+            <div
+              style={{
+                position: "relative",
+                width: "120px",
+                height: "120px",
+                borderRadius: "50%",
+                background: "radial-gradient(circle, #2c2c2c 30%, #111111 70%)",
+                border: "8px solid #333333",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                animation: "spin-record 3s linear infinite",
+                marginBottom: "28px"
+              }}
+            >
+              {/* ลายเส้นร่องเสียง */}
+              <div style={{ position: "absolute", width: "90px", height: "90px", borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.1)" }} />
+              <div style={{ position: "absolute", width: "60px", height: "60px", borderRadius: "50%", border: "1px dashed rgba(255,255,255,0.15)" }} />
+              {/* ป้ายสติกเกอร์ตรงกลางแผ่นเสียง */}
+              <div
+                style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "50%",
+                  backgroundColor: "var(--orange-core, #e85d00)",
+                  border: "4px solid #fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <div style={{ width: "8px", height: "8px", borderRadius: "50%", backgroundColor: "#111" }} />
+              </div>
+            </div>
+
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 800, marginBottom: "12px", background: "linear-gradient(135deg, #ff9f00, #e85d00)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
+              {language === "th" ? "กำลังปลุกระบบเซิร์ฟเวอร์..." : "Waking up server..."}
+            </h2>
+
+            <p style={{ fontSize: "0.95rem", opacity: 0.9, lineHeight: "1.6", marginBottom: "24px", padding: "0 10px" }}>
+              {language === "th" 
+                ? "เซิร์ฟเวอร์หลักหยุดทำงานชั่วคราวเพื่อประหยัดพลังงาน ระบบกำลังเริ่มทำงานใหม่ ใช้เวลาประมาณ 30-50 วินาทีครับ" 
+                : "The server is starting up from hibernation. This takes about 30-50 seconds as we spin up the backend."}
+            </p>
+
+            {/* แถบ Progress Bar */}
+            <div style={{ width: "100%", height: "8px", backgroundColor: "rgba(255,255,255,0.1)", borderRadius: "99px", overflow: "hidden", marginBottom: "12px" }}>
+              <div 
+                style={{ 
+                  height: "100%", 
+                  width: `${wakeProgress}%`, 
+                  background: "linear-gradient(90deg, #ff9f00, #e85d00)", 
+                  borderRadius: "99px",
+                  transition: "width 0.5s ease" 
+                }} 
+              />
+            </div>
+            <div style={{ fontSize: "0.8rem", opacity: 0.6, fontWeight: 700 }}>
+              {serverState === "checking" 
+                ? (language === "th" ? "กำลังตรวจสอบการเชื่อมต่อ..." : "Checking connection...") 
+                : `${language === "th" ? "กำลังสตาร์ท" : "Starting"} ${wakeProgress}%...`}
+            </div>
+          </div>
+        ) : (
+          <>
+            {status === "home" && (
           <Home
             onStartSingle={() => {
               playClickSFX();
@@ -243,6 +385,8 @@ export function App() {
             }}
             playClickSFX={playClickSFX}
           />
+        )}
+          </>
         )}
       </main>
 

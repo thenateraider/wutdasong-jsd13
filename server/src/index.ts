@@ -736,10 +736,16 @@ const seedPresetPlaylists = async () => {
     ];
 
     console.log("[Seeder] Checking and seeding preset playlists...");
+    
+    // ดึงเพลย์ลิสต์ทั้งหมดที่มีอยู่ใน DB ในครั้งเดียวเพื่อลดการวนลูปเชื่อมต่อฐานข้อมูลซ้ำซ้อน
+    const urls = defaultPlaylists.map(pl => pl.url);
+    const existingPlaylists = await PresetPlaylist.find({ url: { $in: urls } }).lean();
+    const existingMap = new Map(existingPlaylists.map(p => [p.url, p]));
+
     for (const pl of defaultPlaylists) {
-      const exists = await PresetPlaylist.findOne({ url: pl.url });
+      const exists = existingMap.get(pl.url);
       if (exists) {
-        // Keep name and default status in sync if updated in code
+        // อัปเดตข้อมูลให้ตรงกับไฟล์โค้ดหากชื่อหรือสถานะ default เปลี่ยนไป
         if (exists.name !== pl.name || exists.isDefault !== pl.isDefault) {
           await PresetPlaylist.updateOne({ url: pl.url }, { name: pl.name, isDefault: pl.isDefault });
         }
@@ -749,7 +755,7 @@ const seedPresetPlaylists = async () => {
       const plId = musicService.extractPlaylistId(pl.url);
       if (plId) {
         console.log(`[Seeder] Seeding missing playlist from Spotify: ${pl.name}`);
-        // Delay between requests to avoid 429 rate limiting
+        // ดีเลย์ 1.5 วินาทีเพื่อป้องกัน Rate limit จาก Spotify
         await new Promise(r => setTimeout(r, 1500));
         const info = await musicService.fetchPlaylistInfo(plId);
         if (info) {
@@ -765,7 +771,7 @@ const seedPresetPlaylists = async () => {
           );
           console.log(`[Seeder] Seeded playlist: ${pl.name} (${info.trackCount} tracks)`);
         } else {
-          // Fallback if Spotify request fails
+          // ใช้ fallback หากดึงข้อมูลล้มเหลว
           await PresetPlaylist.findOneAndUpdate(
             { url: pl.url },
             {
@@ -787,14 +793,18 @@ const seedPresetPlaylists = async () => {
 };
 
 const startServer = async () => {
-  // เชื่อมต่อฐานข้อมูล MongoDB
-  await connectDB(process.env.MONGO_URI);
-
-  // สร้างเพลย์ลิสต์ตั้งต้นหากยังไม่มีข้อมูล
-  await seedPresetPlaylists();
-
+  // สตาร์ทเซิร์ฟเวอร์ทันทีโดยไม่ต้องรอฐานข้อมูล เพื่อให้ Client เชื่อมต่อ/ปลุกเซิร์ฟเวอร์ได้เร็วที่สุด
   server.listen(port, () => {
     console.log(`[Server] Guess The Song Server running on port ${port}`);
+  });
+
+  // เชื่อมต่อฐานข้อมูลและ Seed ข้อมูลแบบ Asynchronous ใน Background
+  connectDB(process.env.MONGO_URI).then(async (connected) => {
+    if (connected) {
+      await seedPresetPlaylists();
+    }
+  }).catch((err) => {
+    console.error("[Server] Background startup error:", err);
   });
 };
 
